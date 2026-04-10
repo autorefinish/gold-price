@@ -361,9 +361,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <!-- 시세 배너 -->
     <div id="priceBanner">
       <div class="pb-item" style="padding-left:0">
-        <div class="pb-label"><span class="pb-dot" id="autoDot" style="display:none"></span>순금 1g</div>
-        <div class="pb-value" id="bannerGoldPrice">조회중...</div>
-        <div class="pb-buy" id="bannerBuyPrice">매입 —</div>
+        <div class="pb-label">
+          <span class="pb-dot" id="autoDot" style="display:none"></span>
+          <span id="autoLabel">순금 1g</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <div>
+            <div style="font-size:9px;color:#7A6030;font-weight:700;margin-bottom:1px">판매가</div>
+            <div class="pb-value" id="bannerGoldPrice">조회중...</div>
+          </div>
+          <div>
+            <div style="font-size:9px;color:#4A90A4;font-weight:700;margin-bottom:1px">매입가</div>
+            <div class="pb-value" id="bannerBuyPrice" style="color:#5BB8D4">—</div>
+          </div>
+        </div>
       </div>
       <div class="pb-divider"></div>
       <div class="pb-item">
@@ -501,60 +512,139 @@ var MANUAL_UPDATE_URL='https://asia-northeast3-gold-price-7dbc2.cloudfunctions.n
    브라우저 CORS 우회: allorigins.win 프록시 사용
    소스: 한국금거래소 고시가 페이지 (공개 데이터)
 */
+/* ══ 네이버 금시세 실시간 파싱 ══ */
+var GOLD_BUY_PRICE=0; /* 매입가(팔때) */
+
 function fetchNaverGoldLive(){
-  /* 방법1: 한국금거래소 고시가 API 프록시 */
-  var url1='https://api.allorigins.win/get?url='+encodeURIComponent('https://www.koreagoldx.co.kr/page/gold_information');
-  /* 방법2: 네이버 금융 금 시세 */
-  var url2='https://api.allorigins.win/get?url='+encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver');
+  ge('bannerGoldPrice').textContent='조회중...';
+  var bp=ge('bannerBuyPrice');if(bp)bp.textContent='매입 조회중...';
 
-  ge('bannerGoldPrice').textContent='시세 조회 중...';
+  /* 시도1: 네이버 금시세 JSON API (goldDetailTime) */
+  var jsonUrl='https://api.allorigins.win/get?url='+encodeURIComponent(
+    'https://finance.naver.com/marketindex/goldDetailTime.naver?marketindexCd=GOLD_KRX_KRW&page=1&requestType=0'
+  );
+  /* 시도2: 네이버 금시세 HTML 페이지 */
+  var htmlUrl='https://api.allorigins.win/get?url='+encodeURIComponent(
+    'https://finance.naver.com/marketindex/goldDetail.naver'
+  );
+  /* 시도3: corsproxy 경유 */
+  var proxyUrl='https://corsproxy.io/?'+encodeURIComponent(
+    'https://finance.naver.com/marketindex/goldDetail.naver'
+  );
 
-  fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
-    .then(function(r){return r.json();})
-    .then(function(data){
-      var html=data.contents||'';
-      /* 네이버 금 시세 파싱: 순금 1g 현재가 */
-      var price=parseNaverGoldPrice(html);
-      if(price&&price>50000){
-        applyGoldPrice(price,'naver-live');
-        return;
+  function trySource(url, parser, label, fallback){
+    return fetch(url, {
+      headers:{'User-Agent':'Mozilla/5.0'},
+      signal: (typeof AbortSignal.timeout==='function') ? AbortSignal.timeout(8000) : undefined
+    })
+    .then(function(r){ return r.text(); })
+    .then(function(text){
+      var result = parser(text);
+      if(result && result.sell > 50000){
+        console.log('[금시세] '+label+' 성공:', result);
+        return result;
       }
-      /* 파싱 실패 시 Firebase 저장값 사용 */
-      console.warn('[금시세] 네이버 파싱 실패, Firebase 저장값 사용');
-      loadGoldPriceFromFirebase();
+      throw new Error(label+' 파싱 실패');
     })
     .catch(function(e){
-      console.warn('[금시세] 네이버 연결 실패:', e.message||e);
+      console.warn('[금시세] '+label+' 실패:', e.message);
+      return fallback ? fallback() : null;
+    });
+  }
+
+  /* JSON API 파서 */
+  function parseJSON(text){
+    try{
+      var data=JSON.parse(text);
+      var contents=data.contents||data;
+      if(typeof contents==='string') contents=JSON.parse(contents);
+      /* goldDetailTime 응답 구조 */
+      var arr=contents.result||contents.chartData||contents;
+      if(Array.isArray(arr)&&arr.length>0){
+        var latest=arr[0];
+        var sell=parseInt((latest.closePrice||latest.highPrice||'0').replace(/,/g,''),10);
+        var buy=parseInt((latest.openPrice||'0').replace(/,/g,''),10);
+        if(sell>50000) return {sell:sell, buy:buy||Math.round(sell*0.97)};
+      }
+    }catch(e){}
+    return null;
+  }
+
+  /* HTML 파서: 네이버 금 시세 페이지 */
+  function parseHTML(text){
+    try{
+      var raw=text;
+      /* allorigins JSON 래핑 처리 */
+      try{ var d=JSON.parse(text); raw=d.contents||text; }catch(e){}
+      
+      /* 살때가격(판매가) 파싱 */
+      var sellPatterns=[
+        /살\s*때[^<]*<[^>]*>\s*([\d,]+)/,
+        /현재가[^<]*<[^>]*class="[^"]*num[^"]*"[^>]*>\s*([\d,]+)/,
+        /<td[^>]*class="[^"]*num[^"]*"[^>]*>\s*([\d,]+)\s*<\/td>/,
+        /"closePrice"\s*:\s*"([\d,]+)"/,
+        /"price"\s*:\s*([\d]+)/
+      ];
+      /* 팔때가격(매입가) 파싱 */
+      var buyPatterns=[
+        /팔\s*때[^<]*<[^>]*>\s*([\d,]+)/,
+        /매입[^<]*<[^>]*>\s*([\d,]+)/,
+        /"openPrice"\s*:\s*"([\d,]+)"/
+      ];
+
+      var sell=0,buy=0;
+      for(var i=0;i<sellPatterns.length;i++){
+        var m=raw.match(sellPatterns[i]);
+        if(m){ var p=parseInt(m[1].replace(/,/g,''),10); if(p>80000&&p<500000){sell=p;break;} }
+      }
+      for(var j=0;j<buyPatterns.length;j++){
+        var m2=raw.match(buyPatterns[j]);
+        if(m2){ var p2=parseInt(m2[1].replace(/,/g,''),10); if(p2>80000&&p2<500000){buy=p2;break;} }
+      }
+      /* fallback: 범위 내 첫 숫자 2개 */
+      if(!sell){
+        var nums=raw.match(/[\d]{2,3},\d{3}/g)||[];
+        var goldNums=[];
+        nums.forEach(function(n){
+          var v=parseInt(n.replace(/,/g,''),10);
+          if(v>100000&&v<400000) goldNums.push(v);
+        });
+        if(goldNums.length>0) sell=goldNums[0];
+        if(goldNums.length>1&&!buy) buy=goldNums[1];
+      }
+      if(sell>50000) return {sell:sell, buy:buy||Math.round(sell*0.97)};
+    }catch(e){}
+    return null;
+  }
+
+  /* 순차 시도 */
+  trySource(jsonUrl, parseJSON, 'naver-json')
+    .then(function(res){
+      if(res) return res;
+      return trySource(htmlUrl, parseHTML, 'allorigins-html');
+    })
+    .then(function(res){
+      if(res) return res;
+      return trySource(proxyUrl, parseHTML, 'corsproxy-html');
+    })
+    .then(function(res){
+      if(res&&res.sell>0){
+        GOLD_BUY_PRICE=res.buy||Math.round(res.sell*0.97);
+        applyGoldPrice(res.sell,'naver-live');
+      } else {
+        console.warn('[금시세] 모든 소스 실패, Firebase 저장값 사용');
+        loadGoldPriceFromFirebase();
+      }
+    })
+    .catch(function(){
       loadGoldPriceFromFirebase();
     });
 }
 
-function parseNaverGoldPrice(html){
-  /* 네이버 금융 금 시세 파싱 패턴들 */
-  var patterns=[
-    /현재가[^0-9]*([\d,]+)/,
-    /<span[^>]*class="[^"]*num[^"]*"[^>]*>([\d,]+)<\/span>/,
-    /gold_domestic[^>]*>[^<]*([\d,]+)/,
-    /([\d]{2,3},\d{3})/g
-  ];
-  for(var i=0;i<patterns.length-1;i++){
-    var m=html.match(patterns[i]);
-    if(m){
-      var p=parseInt(m[1].replace(/,/g,''),10);
-      if(p>80000&&p<500000)return p;
-    }
-  }
-  /* 숫자 패턴으로 범위 탐색 */
-  var nums=html.match(/([\d]{2,3},\d{3})/g)||[];
-  for(var j=0;j<nums.length;j++){
-    var n=parseInt(nums[j].replace(/,/g,''),10);
-    if(n>100000&&n<400000)return n;
-  }
-  return 0;
-}
-
 function applyGoldPrice(price,source){
   GOLD_PRICE_PER_G=price;
+  /* GOLD_BUY_PRICE가 아직 0이면 판매가 기준 97%로 임시 설정 */
+  if(!GOLD_BUY_PRICE) GOLD_BUY_PRICE=Math.round(price*0.97);
   AUTO_UPDATED=true;
   PRICE_UPDATED=new Date().toLocaleDateString('ko-KR');
   updateBanner();
@@ -562,10 +652,11 @@ function applyGoldPrice(price,source){
   if(db&&CU){
     db.collection('goldSettings').doc('current').set({
       goldPricePerG:price,
+      goldBuyPricePerG:GOLD_BUY_PRICE||Math.round(price*0.97),
       updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy:'auto-'+source,
       autoUpdated:true
-    },{merge:true}).catch(function(e){console.warn('[Firebase] goldSettings 저장 오류:',e.message);});
+    },{merge:true}).catch(function(e){console.warn('[Firebase] goldSettings 저장:',e.message);});
   }
   /* 현재 목록 가격 갱신 */
   var lst=ge('lst');
@@ -581,9 +672,15 @@ function loadGoldPriceFromFirebase(){
       var d=doc.data();
       if(d.goldPricePerG&&d.goldPricePerG>0){
         GOLD_PRICE_PER_G=d.goldPricePerG;
+        if(d.goldBuyPricePerG&&d.goldBuyPricePerG>0)
+          GOLD_BUY_PRICE=d.goldBuyPricePerG;
+        else
+          GOLD_BUY_PRICE=Math.round(GOLD_PRICE_PER_G*0.97);
         AUTO_UPDATED=!!d.autoUpdated;
         PRICE_UPDATED=d.updatedAt?new Date(d.updatedAt.seconds*1000).toLocaleDateString('ko-KR'):'';
         updateBanner();
+        /* 목록 가격도 갱신 */
+        if(curRes&&curRes.length){renderList(curRes,false);}
       } else {
         ge('bannerGoldPrice').textContent='시세 미설정';
       }
@@ -960,29 +1057,34 @@ function loadGoldPrice(){
 }
 function updateBanner(){
   if(!GOLD_PRICE_PER_G){
-    ge('bannerGoldPrice').textContent='시세 조회 중...';
-    ge('bannerSamsungPrice').textContent='-';
-    ge('bannerKoreaPrice').textContent='-';
-    var bp=ge('bannerBuyPrice');if(bp)bp.textContent='매입 -';
+    ge('bannerGoldPrice').textContent='조회중...';
+    ge('bannerSamsungPrice').textContent='—';
+    ge('bannerKoreaPrice').textContent='—';
+    var bp=ge('bannerBuyPrice');if(bp)bp.innerHTML='매입 —';
     return;
   }
   var don=GOLD_PRICE_PER_G*3.75;
-  /* 매입가: 판매가의 약 97% (네이버 기준 스프레드) */
-  var buyPrice=Math.round(GOLD_PRICE_PER_G*0.97);
-  var buyDon=Math.round(don*0.97);
+  var buyPrice=GOLD_BUY_PRICE>0?GOLD_BUY_PRICE:Math.round(GOLD_PRICE_PER_G*0.97);
+  var buyDon=Math.round(buyPrice*3.75);
+
   ge('bannerGoldPrice').textContent=nf(Math.round(GOLD_PRICE_PER_G))+'원';
-  var bp=ge('bannerBuyPrice');
-  if(bp)bp.textContent='매입 '+nf(buyPrice)+'원';
   ge('bannerSamsungPrice').textContent=nf(Math.round(don))+'원';
   ge('bannerKoreaPrice').textContent=nf(Math.round(don))+'원';
+
+  /* 매입가: 판매가와 동일 크기, 다른 색 */
+  var bp=ge('bannerBuyPrice');
+  if(bp) bp.innerHTML=nf(buyPrice)+'원';
+
   var now=new Date();
   var timeStr=now.getHours()+'시'+String(now.getMinutes()).padStart(2,'0')+'분';
-  ge('bannerUpdated').innerHTML=(AUTO_UPDATED?'<span style="color:#22C55E;font-weight:800">● LIVE</span><br>':'저장값<br>')+timeStr;
+  ge('bannerUpdated').innerHTML=(AUTO_UPDATED
+    ?'<span style="color:#22C55E;font-weight:900;font-size:10px">● LIVE</span><br>'
+    :'<span style="font-size:9px">저장값</span><br>'
+  )+timeStr;
+
   var dot=ge('autoDot'),lbl=ge('autoLabel');
-  if(dot&&lbl){
-    dot.style.display=AUTO_UPDATED?'inline-block':'none';
-    lbl.textContent='📊 순금 1g 판매';
-  }
+  if(dot){dot.style.display=AUTO_UPDATED?'inline-block':'none';}
+  if(lbl) lbl.textContent='순금 1g 판매';
 }
 
 /* ══ 인증 ══ */
