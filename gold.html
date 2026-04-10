@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>금 판매 가격표</title>
+<title>오늘의 금시세</title>
 <style>
 :root{
   --p:#B8860B;--p2:#8B6914;--acc:#FFD700;
@@ -62,11 +62,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 .admin-btn{background:rgba(255,215,0,.2);color:#FFD700;border:1px solid rgba(255,215,0,.4);border-radius:8px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer}
 
 /* 시세 배너 */
-#priceBanner{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:8px 12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px}
+#priceBanner{background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.25);border-radius:10px;padding:7px 10px;display:flex;align-items:center;justify-content:space-between;gap:4px}
 .pb-item{text-align:center}
 .pb-label{font-size:9px;color:#C8A84B;font-weight:600}
-.pb-value{font-size:14px;font-weight:800;color:#FFD700}
+.pb-value{font-size:13px;font-weight:800;color:#FFD700;white-space:nowrap}
 .pb-sub{font-size:9px;color:#A88C40;margin-top:1px}
+.pb-buy{font-size:9px;color:#e6b84a;margin-top:1px;font-weight:700}
 .pb-updated{font-size:10px;color:#A88C40;text-align:right}
 .pb-dot{width:6px;height:6px;border-radius:50%;background:#FFD700;display:inline-block;margin-right:4px;animation:blink 2s ease-in-out infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
@@ -205,7 +206,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 <!-- 로딩 -->
 <div id="LS">
   <div class="lic">🥇</div>
-  <div class="ltx">금 판매 가격표</div>
+  <div class="ltx">오늘의 금시세</div>
   <div class="lsb" id="lmsg">연결 중...</div>
 </div>
 
@@ -213,7 +214,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 <div id="AS">
   <div class="alo">
     <div class="ali">🥇</div>
-    <div class="alt">금 판매 가격표</div>
+    <div class="alt">오늘의 금시세</div>
     <div class="als">삼성·한국금거래소 기준 &middot; 회원 전용 서비스</div>
   </div>
   <div class="acd">
@@ -259,8 +260,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
       <div class="logo">
         <div class="lic2">🥇</div>
         <div>
-          <div class="ltx2">금 판매 가격표</div>
-          <div class="lsb2">삼성·한국금거래소 기준</div>
+          <div class="ltx2">오늘의 금시세</div>
+          <div class="lsb2">순금 실시간 시세</div>
         </div>
       </div>
       <div class="hdr-r">
@@ -276,19 +277,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <!-- 시세 배너 -->
     <div id="priceBanner">
       <div class="pb-item">
-        <div class="pb-label"><span class="pb-dot" id="autoDot" style="display:none"></span><span id="autoLabel">📊 순금 1g</span></div>
+        <div class="pb-label"><span class="pb-dot" id="autoDot" style="display:none"></span><span id="autoLabel">📊 순금 1g 판매</span></div>
         <div class="pb-value" id="bannerGoldPrice">조회중...</div>
-        <div class="pb-sub">네이버 실시간 시세</div>
+        <div class="pb-sub" id="bannerBuyPrice" style="color:#C8A84B">매입 -</div>
       </div>
       <div class="pb-item">
-        <div class="pb-label">🏆 삼성 1돈(3.75g)</div>
+        <div class="pb-label">🏆 삼성 1돈</div>
         <div class="pb-value" id="bannerSamsungPrice">-</div>
-        <div class="pb-sub">순금 기준가</div>
+        <div class="pb-sub">3.75g 기준</div>
       </div>
       <div class="pb-item">
-        <div class="pb-label">🥇 한국 1돈(3.75g)</div>
+        <div class="pb-label">🥇 한국 1돈</div>
         <div class="pb-value" id="bannerKoreaPrice">-</div>
-        <div class="pb-sub">순금 기준가</div>
+        <div class="pb-sub">3.75g 기준</div>
       </div>
       <div class="pb-updated"><span id="bannerUpdated">-</span></div>
     </div>
@@ -472,13 +473,13 @@ function applyGoldPrice(price,source){
   PRICE_UPDATED=new Date().toLocaleDateString('ko-KR');
   updateBanner();
   /* Firebase에도 저장 (최신값 유지) */
-  if(db&&CU&&(ROLE==='admin')){
+  if(db&&CU){
     db.collection('goldSettings').doc('current').set({
       goldPricePerG:price,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy:'auto-'+source,
       autoUpdated:true
-    },{merge:true}).catch(function(){});
+    },{merge:true}).catch(function(e){console.warn('[Firebase] goldSettings 저장 오류:',e.message);});
   }
   /* 현재 목록 가격 갱신 */
   var lst=ge('lst');
@@ -876,20 +877,25 @@ function updateBanner(){
     ge('bannerGoldPrice').textContent='시세 조회 중...';
     ge('bannerSamsungPrice').textContent='-';
     ge('bannerKoreaPrice').textContent='-';
+    var bp=ge('bannerBuyPrice');if(bp)bp.textContent='매입 -';
     return;
   }
-  /* 순금 1g, 1돈(3.75g) 기준가 */
   var don=GOLD_PRICE_PER_G*3.75;
+  /* 매입가: 판매가의 약 97% (네이버 기준 스프레드) */
+  var buyPrice=Math.round(GOLD_PRICE_PER_G*0.97);
+  var buyDon=Math.round(don*0.97);
   ge('bannerGoldPrice').textContent=nf(Math.round(GOLD_PRICE_PER_G))+'원';
-  ge('bannerSamsungPrice').textContent=nf(Math.round(don))+'원~';
-  ge('bannerKoreaPrice').textContent=nf(Math.round(don))+'원~';
+  var bp=ge('bannerBuyPrice');
+  if(bp)bp.textContent='매입 '+nf(buyPrice)+'원';
+  ge('bannerSamsungPrice').textContent=nf(Math.round(don))+'원';
+  ge('bannerKoreaPrice').textContent=nf(Math.round(don))+'원';
   var now=new Date();
   var timeStr=now.getHours()+'시'+String(now.getMinutes()).padStart(2,'0')+'분';
-  ge('bannerUpdated').textContent=(AUTO_UPDATED?'실시간 ':'저장값 ')+timeStr;
+  ge('bannerUpdated').textContent=(AUTO_UPDATED?'🔴 실시간 ':'저장값 ')+timeStr+' 기준';
   var dot=ge('autoDot'),lbl=ge('autoLabel');
   if(dot&&lbl){
     dot.style.display=AUTO_UPDATED?'inline-block':'none';
-    lbl.textContent=AUTO_UPDATED?'LIVE ':'';
+    lbl.textContent='📊 순금 1g 판매';
   }
 }
 
@@ -1338,10 +1344,10 @@ function openAdmin(){
     var km=parseFloat(ge('inputKoreaMargin').value);
     if(!g||!sm||!km){ge('priceSaveMsg').textContent='❌ 모든 값을 입력해주세요.';return;}
     db.collection('goldSettings').doc('current').set({
-      goldPricePerG:g,samsungMargin:sm,koreaMargin:km,
+      goldPricePerG:g,
       updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
-      updatedBy:CU?CU.email:''
-    }).then(function(){
+      updatedBy:CU?CU.email:'manual'
+    },{merge:true}).then(function(){
       applyGoldPrice(g,'manual-input');
       ge('priceSaveMsg').textContent='✅ 저장 완료! 전체 가격에 반영되었습니다.';
       setTimeout(function(){ge('priceSaveMsg').textContent='';},3000);
