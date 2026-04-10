@@ -88,7 +88,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 #rbar{display:none;align-items:center;gap:6px;padding:8px 14px;font-size:12px;color:var(--sub);background:var(--bg)}
 
 /* 스크롤 영역 */
-#sc{flex:1;overflow-y:auto;padding:12px 12px 80px;-webkit-overflow-scrolling:touch}
+#sc{flex:1;overflow-y:auto;padding:8px 8px 70px;-webkit-overflow-scrolling:touch}
 #home{}
 #lst{display:none}
 #mypage{display:none}
@@ -276,21 +276,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     <!-- 시세 배너 -->
     <div id="priceBanner">
       <div class="pb-item">
-        <div class="pb-label">📅 가격 기준일</div>
-        <div class="pb-value" id="bannerGoldPrice">-</div>
-        <div class="pb-sub">당일 시세 반영</div>
+        <div class="pb-label"><span class="pb-dot" id="autoDot" style="display:none"></span><span id="autoLabel">📊 순금 1g</span></div>
+        <div class="pb-value" id="bannerGoldPrice">조회중...</div>
+        <div class="pb-sub">네이버 실시간 시세</div>
       </div>
       <div class="pb-item">
-        <div class="pb-label">🏆 삼성금거래소</div>
+        <div class="pb-label">🏆 삼성 1돈(3.75g)</div>
         <div class="pb-value" id="bannerSamsungPrice">-</div>
-        <div class="pb-sub">최저가 기준</div>
+        <div class="pb-sub">순금 기준가</div>
       </div>
       <div class="pb-item">
-        <div class="pb-label">🥇 한국금거래소</div>
+        <div class="pb-label">🥇 한국 1돈(3.75g)</div>
         <div class="pb-value" id="bannerKoreaPrice">-</div>
-        <div class="pb-sub">최저가 기준</div>
+        <div class="pb-sub">순금 기준가</div>
       </div>
-      <div class="pb-updated"><span class="pb-dot" id="autoDot" style="display:none"></span><span id="autoLabel" style="font-size:9px;color:#A88C40;margin-right:4px"></span><span id="bannerUpdated">-</span></div>
+      <div class="pb-updated"><span id="bannerUpdated">-</span></div>
     </div>
     <div id="tabs">
       <div class="tb on" data-id="all">전체</div>
@@ -406,16 +406,105 @@ var ADMIN_EMAIL='chem1046@gmail.com';
 
 /* ══ 금시세 전역 변수 ══ */
 var GOLD_PRICE_PER_G=0;   /* 원/g */
-var SAMSUNG_MARGIN=5.0;   /* % */
-var KOREA_MARGIN=4.5;     /* % */
 var PRICE_UPDATED='';
 var AUTO_UPDATED=false;
+var MANUAL_UPDATE_URL='https://asia-northeast3-gold-price-7dbc2.cloudfunctions.net/manualGoldPriceUpdate';
 
-/* ══ Cloud Functions URL ══
-   배포 후 실제 URL로 교체하세요
-   형식: https://asia-northeast3-autorefinish.cloudfunctions.net/manualGoldPriceUpdate
+/* ══ 네이버 금시세 실시간 크롤링 ══
+   브라우저 CORS 우회: allorigins.win 프록시 사용
+   소스: 한국금거래소 고시가 페이지 (공개 데이터)
 */
-var MANUAL_UPDATE_URL='https://asia-northeast3-autorefinish.cloudfunctions.net/manualGoldPriceUpdate';
+function fetchNaverGoldLive(){
+  /* 방법1: 한국금거래소 고시가 API 프록시 */
+  var url1='https://api.allorigins.win/get?url='+encodeURIComponent('https://www.koreagoldx.co.kr/page/gold_information');
+  /* 방법2: 네이버 금융 금 시세 */
+  var url2='https://api.allorigins.win/get?url='+encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver');
+
+  ge('bannerGoldPrice').textContent='시세 조회 중...';
+
+  fetch(url2,{signal:AbortSignal.timeout?AbortSignal.timeout(8000):undefined})
+    .then(function(r){return r.json();})
+    .then(function(data){
+      var html=data.contents||'';
+      /* 네이버 금 시세 파싱: 순금 1g 현재가 */
+      var price=parseNaverGoldPrice(html);
+      if(price&&price>50000){
+        applyGoldPrice(price,'naver-live');
+        return;
+      }
+      /* 파싱 실패 시 Firebase 저장값 사용 */
+      console.warn('[금시세] 네이버 파싱 실패, Firebase 저장값 사용');
+      loadGoldPriceFromFirebase();
+    })
+    .catch(function(e){
+      console.warn('[금시세] 네이버 연결 실패:', e.message||e);
+      loadGoldPriceFromFirebase();
+    });
+}
+
+function parseNaverGoldPrice(html){
+  /* 네이버 금융 금 시세 파싱 패턴들 */
+  var patterns=[
+    /현재가[^0-9]*([\d,]+)/,
+    /<span[^>]*class="[^"]*num[^"]*"[^>]*>([\d,]+)<\/span>/,
+    /gold_domestic[^>]*>[^<]*([\d,]+)/,
+    /([\d]{2,3},\d{3})/g
+  ];
+  for(var i=0;i<patterns.length-1;i++){
+    var m=html.match(patterns[i]);
+    if(m){
+      var p=parseInt(m[1].replace(/,/g,''),10);
+      if(p>80000&&p<500000)return p;
+    }
+  }
+  /* 숫자 패턴으로 범위 탐색 */
+  var nums=html.match(/([\d]{2,3},\d{3})/g)||[];
+  for(var j=0;j<nums.length;j++){
+    var n=parseInt(nums[j].replace(/,/g,''),10);
+    if(n>100000&&n<400000)return n;
+  }
+  return 0;
+}
+
+function applyGoldPrice(price,source){
+  GOLD_PRICE_PER_G=price;
+  AUTO_UPDATED=true;
+  PRICE_UPDATED=new Date().toLocaleDateString('ko-KR');
+  updateBanner();
+  /* Firebase에도 저장 (최신값 유지) */
+  if(db&&CU&&(ROLE==='admin')){
+    db.collection('goldSettings').doc('current').set({
+      goldPricePerG:price,
+      updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
+      updatedBy:'auto-'+source,
+      autoUpdated:true
+    },{merge:true}).catch(function(){});
+  }
+  /* 현재 목록 가격 갱신 */
+  var lst=ge('lst');
+  if(lst&&lst.style.display!=='none'&&curRes.length){
+    renderList(curRes,false);ge('sc').scrollTop=0;
+  }
+  console.log('[금시세] 적용완료:',nf(price),'원/g ('+source+')');
+}
+
+function loadGoldPriceFromFirebase(){
+  db.collection('goldSettings').doc('current').get().then(function(doc){
+    if(doc.exists){
+      var d=doc.data();
+      if(d.goldPricePerG&&d.goldPricePerG>0){
+        GOLD_PRICE_PER_G=d.goldPricePerG;
+        AUTO_UPDATED=!!d.autoUpdated;
+        PRICE_UPDATED=d.updatedAt?new Date(d.updatedAt.seconds*1000).toLocaleDateString('ko-KR'):'';
+        updateBanner();
+      } else {
+        ge('bannerGoldPrice').textContent='시세 미설정';
+      }
+    } else {
+      ge('bannerGoldPrice').textContent='시세 미설정';
+    }
+  }).catch(function(){ge('bannerGoldPrice').textContent='연결 오류';});
+}
 
 /* ══ 금 제품 데이터 ══
    weight: g, workFee: 가공비(원), 수량할인 없음 — 시세×중량+가공비로 계산
@@ -740,47 +829,68 @@ var PRODUCTS=[
   {id:'kr226',store:'korea',cat:'기타귀금속',name:'LS MnM 팔라듐',basePrice:38506000,workFee:0,link:'https://m.koreagoldx.co.kr/product/list?categoryNo=5',img:'https://m.koreagoldx.co.kr/data/product/thumb/대표이미지_LS MnM 팔라듐 450g.jpg'}
 ];
 
-/* 가격 계산: 엑셀 기준가 + 공임비 */
+/* 가격 계산:
+   - 금시세 있으면: 금시세(원/g) × 중량(g) + 공임비
+   - 금시세 없으면: 엑셀 기준가 + 공임비 (임시)
+   - 중량 없으면: null (시세변동 표시)
+*/
 function calcPrice(p){
+  var w=parseWeight(p);
+  if(GOLD_PRICE_PER_G>0&&w>0){
+    return Math.round(GOLD_PRICE_PER_G*w)+(p.workFee||0);
+  }
+  /* 금시세 미설정: 엑셀 기준가 fallback */
   if(p.basePrice&&p.basePrice>0)return p.basePrice+(p.workFee||0);
   return null;
+}
+
+/* 제품명/카테고리에서 중량(g) 파싱 */
+function parseWeight(p){
+  if(p._weight!==undefined)return p._weight;
+  /* 이름에서 숫자g 패턴 탐색 */
+  var name=p.name||'';
+  /* 온스(oz) → g 변환 */
+  var oz=name.match(/([0-9.]+)\s*oz/i)||name.match(/([0-9.]+)\s*온스/i);
+  if(oz)return p._weight=parseFloat(oz[1])*31.1035;
+  /* XXg 패턴 */
+  var gm=name.match(/([0-9.]+)\s*g/i);
+  if(gm)return p._weight=parseFloat(gm[1]);
+  /* X돈 패턴 (1돈=3.75g) */
+  var don=name.match(/([0-9.]+)\s*돈/);
+  if(don)return p._weight=parseFloat(don[1])*3.75;
+  /* X냥 패턴 (1냥=37.5g) */
+  var nyang=name.match(/([0-9.]+)\s*냥/);
+  if(nyang)return p._weight=parseFloat(nyang[1])*37.5;
+  return p._weight=0;
 }
 function nf(n){return Number(n).toLocaleString('ko-KR');}
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
 
 /* ══ 금시세 로드 ══ */
 function loadGoldPrice(){
-  db.collection('goldSettings').doc('current').get().then(function(doc){
-    if(doc.exists){
-      var d=doc.data();
-      GOLD_PRICE_PER_G=d.goldPricePerG||0;
-      SAMSUNG_MARGIN=d.samsungMargin||5.0;
-      KOREA_MARGIN=d.koreaMargin||4.5;
-      AUTO_UPDATED=!!d.autoUpdated;
-      PRICE_UPDATED=d.updatedAt?new Date(d.updatedAt.seconds*1000).toLocaleDateString('ko-KR'):'';
-      updateBanner();
-    } else {
-      ge('bannerGoldPrice').textContent='시세 미설정';
-    }
-  }).catch(function(){});
+  /* 실시간 네이버 금시세 먼저 시도, 실패 시 Firebase 저장값 */
+  fetchNaverGoldLive();
 }
 function updateBanner(){
-  /* 삼성/한국 골드바 3.75g 대표 기준가 자동 탐색 */
-  var ssProd=PRODUCTS.find(function(p){return p.store==='samsung'&&p.cat.indexOf('골드바')>=0&&p.basePrice>0;});
-  var krProd=PRODUCTS.find(function(p){return p.store==='korea'&&p.cat.indexOf('골드바')>=0&&p.basePrice>0;});
-  var ssMin=ssProd?ssProd.basePrice:0;
-  var krMin=krProd?krProd.basePrice:0;
-  /* 최저가 제품 찾기 */
-  PRODUCTS.forEach(function(p){
-    if(p.store==='samsung'&&p.basePrice>0&&p.basePrice<ssMin)ssMin=p.basePrice;
-    if(p.store==='korea'&&p.basePrice>0&&p.basePrice<krMin)krMin=p.basePrice;
-  });
-  ge('bannerGoldPrice').textContent=PRICE_UPDATED?PRICE_UPDATED+' 기준':'오늘 시세';
-  ge('bannerSamsungPrice').textContent=ssMin?nf(ssMin)+'원~':'-';
-  ge('bannerKoreaPrice').textContent=krMin?nf(krMin)+'원~':'-';
-  ge('bannerUpdated').textContent='총 '+PRODUCTS.length+'개 제품';
+  if(!GOLD_PRICE_PER_G){
+    ge('bannerGoldPrice').textContent='시세 조회 중...';
+    ge('bannerSamsungPrice').textContent='-';
+    ge('bannerKoreaPrice').textContent='-';
+    return;
+  }
+  /* 순금 1g, 1돈(3.75g) 기준가 */
+  var don=GOLD_PRICE_PER_G*3.75;
+  ge('bannerGoldPrice').textContent=nf(Math.round(GOLD_PRICE_PER_G))+'원';
+  ge('bannerSamsungPrice').textContent=nf(Math.round(don))+'원~';
+  ge('bannerKoreaPrice').textContent=nf(Math.round(don))+'원~';
+  var now=new Date();
+  var timeStr=now.getHours()+'시'+String(now.getMinutes()).padStart(2,'0')+'분';
+  ge('bannerUpdated').textContent=(AUTO_UPDATED?'실시간 ':'저장값 ')+timeStr;
   var dot=ge('autoDot'),lbl=ge('autoLabel');
-  if(dot&&lbl){dot.style.display='none';lbl.textContent='';}
+  if(dot&&lbl){
+    dot.style.display=AUTO_UPDATED?'inline-block':'none';
+    lbl.textContent=AUTO_UPDATED?'LIVE ':'';
+  }
 }
 
 /* ══ 인증 ══ */
@@ -923,7 +1033,7 @@ function renderList(res,app){
   ge('mypage').style.display='none';ge('inp').disabled=false;
   ge('rcnt').textContent=res.length;
   if(!res.length){le.style.display='none';ee.style.display='flex';return;}
-  le.style.display='grid';
+  le.style.display='grid';le.className='grid';
   if(!app){offset=0;le.innerHTML='';}
   var sl=res.slice(offset,offset+CHUNK),h='';
   sl.forEach(function(p){h+=mkCard(p);});
@@ -1027,6 +1137,7 @@ function mkCard(p){
     +'<div class="card-body">'
     +'<div class="card-cat-badge">'+esc(p.cat)+'</div>'
     +'<div class="card-nm">'+esc(p.name)+'</div>'
+    +(parseWeight(p)>0?'<div style="font-size:9px;color:var(--p2);font-weight:700;margin-bottom:4px">⚖ '+parseWeight(p)+'g</div>':'')
     +priceHtml+btns
     +'</div></div>';
 }
@@ -1202,10 +1313,7 @@ function openAdmin(){
       .then(function(r){return r.json();})
       .then(function(data){
         if(data.success){
-          GOLD_PRICE_PER_G=data.price;AUTO_UPDATED=true;
-          PRICE_UPDATED=new Date().toLocaleDateString('ko-KR');
-          updateBanner();
-          if(curTab!=='all'&&curTab!=='mypage'){curRes=doFilter(ge('inp').value.trim(),curTab);renderList(curRes,false);}
+          applyGoldPrice(data.price,'manual-btn');
           msg.style.color='#27AE60';
           msg.textContent='✅ '+data.message;
           ge('inputGoldPrice').value=data.price;
@@ -1234,11 +1342,7 @@ function openAdmin(){
       updatedAt:firebase.firestore.FieldValue.serverTimestamp(),
       updatedBy:CU?CU.email:''
     }).then(function(){
-      GOLD_PRICE_PER_G=g;SAMSUNG_MARGIN=sm;KOREA_MARGIN=km;
-      PRICE_UPDATED=new Date().toLocaleDateString('ko-KR');
-      updateBanner();
-      /* 현재 목록 새로 고침 */
-      if(curTab!=='all'&&curTab!=='mypage'){curRes=doFilter(ge('inp').value.trim(),curTab);renderList(curRes,false);}
+      applyGoldPrice(g,'manual-input');
       ge('priceSaveMsg').textContent='✅ 저장 완료! 전체 가격에 반영되었습니다.';
       setTimeout(function(){ge('priceSaveMsg').textContent='';},3000);
     }).catch(function(e){ge('priceSaveMsg').textContent='❌ 저장 실패: '+e.message;});
