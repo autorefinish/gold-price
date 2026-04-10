@@ -99,9 +99,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   background:linear-gradient(135deg,rgba(255,215,0,.06) 0%,rgba(139,105,20,.1) 50%,rgba(255,215,0,.06) 100%);
   border:1px solid rgba(255,215,0,.18);
   border-radius:12px;
-  padding:10px 14px;
+  padding:12px 16px;
   display:grid;
-  grid-template-columns:1.2fr 1fr 1fr auto;
+  grid-template-columns:repeat(5,1fr);
   align-items:center;
   gap:0;
   position:relative;
@@ -112,14 +112,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
   background:linear-gradient(90deg,transparent 0%,rgba(255,215,0,.04) 50%,transparent 100%);
   pointer-events:none;
 }
-.pb-divider{width:1px;height:32px;background:rgba(255,215,0,.15);margin:0 12px}
-.pb-item{text-align:left;padding:0 8px}
-.pb-item:first-child{padding-left:0}
-.pb-label{font-size:9px;color:#7A6030;font-weight:700;letter-spacing:.4px;text-transform:uppercase;margin-bottom:2px}
-.pb-value{font-size:16px;font-weight:900;color:#FFD700;line-height:1;letter-spacing:-.5px;text-shadow:0 0 12px rgba(255,215,0,.3)}
-.pb-sub{font-size:9px;color:#6A5020;margin-top:2px}
+.pb-divider{width:1px;background:rgba(255,215,0,.15);align-self:stretch;margin:0 4px}
+.pb-item{text-align:center;padding:0 4px}
+.pb-label{font-size:10px;color:#7A6030;font-weight:700;letter-spacing:.3px;margin-bottom:3px}
+.pb-value{font-size:22px;font-weight:900;color:#FFD700;line-height:1;letter-spacing:-.5px;text-shadow:0 0 16px rgba(255,215,0,.4)}
+.pb-sub{font-size:9px;color:#5A4010;margin-top:3px}
 .pb-buy{font-size:10px;color:#C8A84B;margin-top:1px;font-weight:700}
-.pb-updated{font-size:9px;color:#5A4010;text-align:right;line-height:1.5;white-space:nowrap}
+.pb-updated{font-size:10px;color:#5A4010;text-align:center;line-height:1.6;white-space:nowrap}
+/* 모바일: 글씨 약간 축소 */
+@media(max-width:480px){
+  .pb-value{font-size:16px}
+  .pb-label{font-size:9px}
+  #priceBanner{padding:10px 10px;grid-template-columns:repeat(5,1fr)}
+}
 .pb-dot{
   width:6px;height:6px;border-radius:50%;
   background:#22C55E;display:inline-block;margin-right:3px;
@@ -360,35 +365,42 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     </div>
     <!-- 시세 배너 -->
     <div id="priceBanner">
-      <div class="pb-item" style="padding-left:0">
+      <!-- 순금 1g 판매가 -->
+      <div class="pb-item">
         <div class="pb-label">
           <span class="pb-dot" id="autoDot" style="display:none"></span>
-          <span id="autoLabel">순금 1g</span>
+          순금 1g 판매
         </div>
-        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-          <div>
-            <div style="font-size:9px;color:#7A6030;font-weight:700;margin-bottom:1px">판매가</div>
-            <div class="pb-value" id="bannerGoldPrice">조회중...</div>
-          </div>
-          <div>
-            <div style="font-size:9px;color:#4A90A4;font-weight:700;margin-bottom:1px">매입가</div>
-            <div class="pb-value" id="bannerBuyPrice" style="color:#5BB8D4">—</div>
-          </div>
-        </div>
+        <div class="pb-value" id="bannerGoldPrice">조회중...</div>
+        <div class="pb-sub">네이버 실시간</div>
       </div>
       <div class="pb-divider"></div>
+      <!-- 순금 1g 매입가 -->
       <div class="pb-item">
-        <div class="pb-label">삼성 · 1돈</div>
+        <div class="pb-label" style="color:#4A90A4">순금 1g 매입</div>
+        <div class="pb-value" id="bannerBuyPrice" style="color:#5BB8D4;text-shadow:0 0 16px rgba(91,184,212,.4)">—</div>
+        <div class="pb-sub">팔 때 기준</div>
+      </div>
+      <div class="pb-divider"></div>
+      <!-- 삼성금거래소 1돈 -->
+      <div class="pb-item">
+        <div class="pb-label">🏆 삼성 1돈</div>
         <div class="pb-value" id="bannerSamsungPrice">—</div>
         <div class="pb-sub">3.75g 기준</div>
       </div>
       <div class="pb-divider"></div>
+      <!-- 한국금거래소 1돈 -->
       <div class="pb-item">
-        <div class="pb-label">한국 · 1돈</div>
+        <div class="pb-label">🥇 한국 1돈</div>
         <div class="pb-value" id="bannerKoreaPrice">—</div>
         <div class="pb-sub">3.75g 기준</div>
       </div>
-      <div class="pb-updated" style="padding-left:4px"><span id="bannerUpdated" style="font-size:9px;color:#5A4010;line-height:1.6">—</span></div>
+      <div class="pb-divider"></div>
+      <!-- LIVE 상태 -->
+      <div class="pb-item">
+        <div class="pb-label" id="autoLabel">갱신 시각</div>
+        <div class="pb-updated"><span id="bannerUpdated">—</span></div>
+      </div>
     </div>
     <div id="tabs" style="margin-top:2px">
       <div class="tb on" data-id="all">전체</div>
@@ -1078,13 +1090,12 @@ function updateBanner(){
   var now=new Date();
   var timeStr=now.getHours()+'시'+String(now.getMinutes()).padStart(2,'0')+'분';
   ge('bannerUpdated').innerHTML=(AUTO_UPDATED
-    ?'<span style="color:#22C55E;font-weight:900;font-size:10px">● LIVE</span><br>'
-    :'<span style="font-size:9px">저장값</span><br>'
-  )+timeStr;
+    ?'<span style="color:#22C55E;font-weight:900">● LIVE</span><br>'
+    :'<span style="color:#7A6030">저장값</span><br>'
+  )+'<span style="font-size:11px;font-weight:700;color:#C8A84B">'+timeStr+'</span>';
 
-  var dot=ge('autoDot'),lbl=ge('autoLabel');
+  var dot=ge('autoDot');
   if(dot){dot.style.display=AUTO_UPDATED?'inline-block':'none';}
-  if(lbl) lbl.textContent='순금 1g 판매';
 }
 
 /* ══ 인증 ══ */
