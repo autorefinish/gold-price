@@ -88,7 +88,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 #rbar{display:none;align-items:center;gap:6px;padding:8px 14px;font-size:12px;color:var(--sub);background:var(--bg)}
 
 /* 스크롤 영역 */
-#sc{flex:1;overflow-y:auto;padding:10px 14px 80px;-webkit-overflow-scrolling:touch}
+#sc{flex:1;overflow-y:auto;padding:12px 12px 80px;-webkit-overflow-scrolling:touch}
 #home{}
 #lst{display:none}
 #mypage{display:none}
@@ -98,30 +98,36 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
 /* ══ 홈 카테고리 ══ */
 .sec-t{font-size:13px;font-weight:800;color:var(--sub);margin:6px 0 10px;letter-spacing:.3px;text-transform:uppercase}
 .cgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
-.cc{background:var(--card);border-radius:var(--r);border:1px solid var(--bd);padding:16px 14px;cursor:pointer;transition:.15s;text-align:center}
-.cc:active{transform:scale(.97)}
-.cc-em{font-size:32px;margin-bottom:6px}
-.cc-nm{font-size:13px;font-weight:700;color:var(--tx)}
-.cc-ct{font-size:11px;color:var(--sub);margin-top:3px}
+.cc{background:linear-gradient(145deg,var(--card),var(--tag));border-radius:14px;border:1px solid rgba(184,134,11,.2);padding:18px 14px;cursor:pointer;transition:.15s;text-align:center;position:relative;overflow:hidden}
+.cc::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,215,0,.08),transparent);pointer-events:none}
+.cc:active{transform:scale(.96)}
+.cc-em{font-size:36px;margin-bottom:8px;display:block}
+.cc-nm{font-size:13px;font-weight:800;color:var(--tx)}
+.cc-ct{font-size:11px;color:var(--p2);margin-top:4px;font-weight:600}
+
+/* ══ 제품 그리드 ══ */
+#lst{display:none;display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+#lst.active{display:grid}
 
 /* ══ 제품 카드 ══ */
-.card{background:var(--card);border-radius:var(--r);border:1px solid var(--bd);padding:14px;margin-bottom:10px;transition:.15s}
-.card:active{transform:scale(.99)}
-.card-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
-.card-nm{font-size:14px;font-weight:700;color:var(--tx);line-height:1.4;flex:1}
-.card-cat{font-size:10px;font-weight:700;color:var(--p);background:var(--tag);border:1px solid var(--bd);border-radius:6px;padding:2px 7px;margin-left:8px;white-space:nowrap;flex-shrink:0}
-.card-info{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.card-tag{background:var(--tag);border:1px solid var(--bd);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--sub)}
-.card-tag b{color:var(--tx)}
-.price-row{display:flex;align-items:baseline;gap:6px;margin-bottom:4px}
-.price-label{font-size:11px;color:var(--sub);font-weight:600}
-.price-val{font-size:20px;font-weight:800;color:var(--p)}
-.price-unit{font-size:11px;color:var(--sub)}
-.price-locked{font-size:13px;color:var(--sub);background:var(--tag);border-radius:8px;padding:8px 10px;border:1px dashed var(--bd);text-align:center}
-.card-footer{display:flex;gap:8px;margin-top:10px}
-.smsbtn{flex:1;padding:10px;background:linear-gradient(135deg,var(--p),var(--p2));color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.detbtn{padding:10px 14px;background:var(--tag);color:var(--p);border:1px solid var(--bd);border-radius:10px;font-size:13px;font-weight:700;cursor:pointer}
-.reqbtn{flex:1;padding:10px;background:var(--tag);color:var(--p2);border:1px solid var(--p);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer}
+.card{background:var(--card);border-radius:14px;border:1px solid var(--bd);overflow:hidden;transition:transform .15s,box-shadow .15s;display:flex;flex-direction:column;cursor:pointer}
+.card:active{transform:scale(.97)}
+.card-thumb{width:100%;aspect-ratio:1/1;overflow:hidden;background:linear-gradient(135deg,#F9F3E0,#EDE0C0);position:relative;flex-shrink:0}
+.card-thumb img{width:100%;height:100%;object-fit:cover;transition:transform .3s}
+.card:active .card-thumb img{transform:scale(1.04)}
+.gold-empty,.card-thumb-empty{width:100%;aspect-ratio:1/1;background:linear-gradient(135deg,#F5EDD5,#E8D8A0);display:flex;align-items:center;justify-content:center;font-size:36px}
+.card-store{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.55);color:#FFD700;font-size:10px;font-weight:800;padding:3px 7px;border-radius:20px;backdrop-filter:blur(4px)}
+.card-body{padding:10px 11px 12px;display:flex;flex-direction:column;flex:1}
+.card-cat-badge{font-size:10px;font-weight:700;color:var(--p2);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-nm{font-size:12px;font-weight:700;color:var(--tx);line-height:1.4;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;flex:1}
+.card-price-area{margin-top:auto}
+.price-val{font-size:17px;font-weight:900;color:var(--p);line-height:1.2}
+.price-won{font-size:12px;font-weight:700;color:var(--p2)}
+.price-locked{font-size:11px;color:var(--sub);background:var(--tag);border-radius:6px;padding:6px 8px;text-align:center}
+.card-footer{display:flex;gap:6px;margin-top:8px}
+.smsbtn{flex:1;padding:9px 4px;background:linear-gradient(135deg,var(--p),var(--p2));color:#1a1000;border:none;border-radius:8px;font-size:12px;font-weight:800;cursor:pointer;letter-spacing:-.2px}
+.detbtn{padding:9px 10px;background:rgba(184,134,11,.12);color:var(--p2);border:1px solid rgba(184,134,11,.3);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+.reqbtn{flex:1;padding:9px 4px;background:var(--tag);color:var(--p2);border:1px solid rgba(184,134,11,.4);border-radius:8px;font-size:11px;font-weight:700;cursor:pointer}
 
 /* ══ 상세 패널 ══ */
 .ov{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -917,7 +923,7 @@ function renderList(res,app){
   ge('mypage').style.display='none';ge('inp').disabled=false;
   ge('rcnt').textContent=res.length;
   if(!res.length){le.style.display='none';ee.style.display='flex';return;}
-  le.style.display='block';
+  le.style.display='grid';
   if(!app){offset=0;le.innerHTML='';}
   var sl=res.slice(offset,offset+CHUNK),h='';
   sl.forEach(function(p){h+=mkCard(p);});
@@ -988,35 +994,41 @@ var STORE_LABEL={samsung:'🏆 삼성',korea:'🥇 한국'};
 var CAT_LABEL={ring:'💍 장신구',bar:'🔶 골드바',coin:'🪙 금화·메달'};
 function mkCard(p){
   var price=calcPrice(p);
+  /* 썸네일 */
+  var thumbInner=p.img
+    ?'<img src="'+esc(p.img)+'" loading="lazy" alt="" onerror="this.style.display=none">'
+    +'<span class="card-store">'+(p.store==='samsung'?'🏆 삼성':'🥇 한국')+'</span>'
+    :'<div class="card-thumb-empty">🥇</div>'
+    +'<span class="card-store">'+(p.store==='samsung'?'🏆 삼성':'🥇 한국')+'</span>';
+  /* 가격 */
   var priceHtml='';
   if(ROLE==='none'){
-    priceHtml='<div class="price-locked">🔒 로그인 후 가격 확인</div>';
+    priceHtml='<div class="price-locked">🔒 로그인 후 확인</div>';
   } else if(price){
-    priceHtml='<div class="price-row"><span class="price-label">판매가</span><span class="price-val">'+nf(price)+'원</span></div>';
+    priceHtml='<div class="card-price-area"><span class="price-val">'+nf(price)+'</span><span class="price-won">원</span></div>';
   } else {
-    priceHtml='<div class="price-locked">📞 시세변동 — 문의 요망</div>';
+    priceHtml='<div class="price-locked">📞 시세변동</div>';
   }
+  /* 버튼 */
   var btns='';
   if(ROLE==='pro'||ROLE==='admin'){
     btns='<div class="card-footer">'
-      +'<button class="smsbtn" data-id="'+p.id+'">💬 주문하기</button>'
+      +'<button class="smsbtn" data-id="'+p.id+'">💬 주문</button>'
       +'<button class="detbtn" data-id="'+p.id+'">상세</button>'
       +'</div>';
   } else if(ROLE==='basic'){
-    btns='<div class="card-footer"><button class="reqbtn" data-id="'+p.id+'">🔓 승인 요청</button>'
-      +'<button class="detbtn" data-id="'+p.id+'">상세</button></div>';
+    btns='<div class="card-footer">'
+      +'<button class="reqbtn" data-id="'+p.id+'">🔓 승인요청</button>'
+      +'<button class="detbtn" data-id="'+p.id+'">상세</button>'
+      +'</div>';
   }
-  var imgHtml=p.img?'<img src="'+esc(p.img)+'" style="width:100%;height:140px;object-fit:cover;border-radius:8px;margin-bottom:10px;background:#f5f0e0" loading="lazy" onerror="this.style.display=none">':'';
   return '<div class="card" data-id="'+p.id+'">'
-    +imgHtml
-    +'<div class="card-hd"><div class="card-nm">'+esc(p.name)+'</div>'
-    +'<span class="card-cat">'+(STORE_LABEL[p.store]||'')+'</span></div>'
-    +'<div class="card-info">'
-    +'<span class="card-tag">'+esc(p.cat)+'</span>'
-    +(ROLE==='pro'||ROLE==='admin'&&p.workFee?'<span class="card-tag"><b>공임비</b> +'+nf(p.workFee)+'원</span>':'')
-    +'</div>'
+    +'<div class="card-thumb">'+thumbInner+'</div>'
+    +'<div class="card-body">'
+    +'<div class="card-cat-badge">'+esc(p.cat)+'</div>'
+    +'<div class="card-nm">'+esc(p.name)+'</div>'
     +priceHtml+btns
-    +'</div>';
+    +'</div></div>';
 }
 ge('lst').addEventListener('click',function(e){
   var btn=e.target.closest('[data-id]');if(!btn)return;
