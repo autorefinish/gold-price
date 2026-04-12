@@ -370,31 +370,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Noto Sans KR',sans-serif;back
     </div>
     <!-- 시세 배너 -->
     <div id="priceBanner">
+      <!-- 사실때 1g -->
       <div class="pb-item">
-        <div class="pb-label"><span class="pb-dot" id="autoDot" style="display:none"></span>실물 살 때 (1g)</div>
+        <div class="pb-label">
+          <span class="pb-dot" id="autoDot" style="display:none"></span>
+          사실 때 (1g)
+        </div>
         <div class="pb-value" id="bannerGoldPrice">조회중...</div>
-        <div class="pb-sub">신한은행 기준</div>
+        <div class="pb-sub">신한은행 · 네이버</div>
       </div>
       <div class="pb-divider"></div>
+      <!-- 파실때 1g -->
       <div class="pb-item">
-        <div class="pb-label" style="color:#5BB8D4">실물 팔 때 (1g)</div>
+        <div class="pb-label" style="color:#5BB8D4">파실 때 (1g)</div>
         <div class="pb-value" id="bannerBuyPrice" style="color:#5BB8D4;text-shadow:0 0 14px rgba(91,184,212,.35)">—</div>
-        <div class="pb-sub" style="color:#4A8090">신한은행 기준</div>
+        <div class="pb-sub" style="color:#4A8090">신한은행 · 네이버</div>
       </div>
       <div class="pb-divider"></div>
+      <!-- 사실때 1돈 -->
       <div class="pb-item">
-        <div class="pb-label">살 때 (1돈·3.75g)</div>
+        <div class="pb-label">사실 때 (1돈·3.75g)</div>
         <div class="pb-value" id="bannerSamsungPrice">—</div>
-        <div class="pb-sub">삼성·한국 기준</div>
+        <div class="pb-sub">사실때×3.75g</div>
       </div>
       <div class="pb-divider"></div>
+      <!-- 파실때 1돈 -->
       <div class="pb-item">
-        <div class="pb-label" style="color:#5BB8D4">팔 때 (1돈·3.75g)</div>
+        <div class="pb-label" style="color:#5BB8D4">파실 때 (1돈·3.75g)</div>
         <div class="pb-value" id="bannerKoreaPrice" style="color:#5BB8D4;text-shadow:0 0 14px rgba(91,184,212,.35)">—</div>
-        <div class="pb-sub" style="color:#4A8090">삼성·한국 기준</div>
+        <div class="pb-sub" style="color:#4A8090">파실때×3.75g</div>
       </div>
       <div class="pb-divider"></div>
-      <div class="pb-item" style="flex:0 0 auto;min-width:60px">
+      <!-- 갱신시각 -->
+      <div class="pb-item" style="flex:0 0 auto;min-width:58px">
         <div class="pb-label" id="autoLabel">갱신</div>
         <div id="bannerUpdated" style="font-size:11px;font-weight:700;color:#C8A84B;line-height:1.5">—</div>
       </div>
@@ -517,113 +525,112 @@ var PRICE_UPDATED='';
 var AUTO_UPDATED=false;
 var MANUAL_UPDATE_URL='https://asia-northeast3-gold-price-7dbc2.cloudfunctions.net/manualGoldPriceUpdate';
 
-/* ══ 네이버 금시세 실시간 크롤링 ══
-   브라우저 CORS 우회: allorigins.win 프록시 사용
-   소스: 한국금거래소 고시가 페이지 (공개 데이터)
-*/
-/* ══ 네이버 실물 살때/팔때 실시간 파싱 ══ */
-var GOLD_BUY_PRICE=0; /* 실물 팔때(매입가) */
+/* ══ 네이버 실물 사실때/파실때 실시간 파싱 ══ */
+var GOLD_BUY_PRICE=0; /* 파실때(팔때) */
 
 function fetchNaverGoldLive(){
   ge('bannerGoldPrice').textContent='조회중...';
 
-  /* 네이버 금시세 상세 페이지 (신한은행 기준 실물 살때/팔때 포함) */
-  var targets=[
-    'https://api.allorigins.win/get?url='+encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver'),
-    'https://corsproxy.io/?'+encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver'),
-    'https://api.allorigins.win/get?url='+encodeURIComponent('https://finance.naver.com/marketindex/goldDetailTime.naver?marketindexCd=GOLD_KRX_KRW&page=1&requestType=0')
-  ];
+  var JSON_URL='https://api.allorigins.win/get?url='
+    +encodeURIComponent('https://finance.naver.com/marketindex/goldDetailTime.naver?marketindexCd=GOLD_KRX_KRW&page=1&requestType=0');
+  var HTML_URL='https://api.allorigins.win/get?url='
+    +encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver');
+  var PROXY_URL='https://corsproxy.io/?'
+    +encodeURIComponent('https://finance.naver.com/marketindex/goldDetail.naver');
 
-  function tryFetch(idx){
-    if(idx>=targets.length){
-      console.warn('[금시세] 모든 소스 실패 → Firebase 저장값 사용');
-      loadGoldPriceFromFirebase();
-      return;
-    }
-    fetch(targets[idx])
+  function doFetch(url,parser){
+    return fetch(url,{headers:{'Accept':'*/*'}})
       .then(function(r){return r.text();})
       .then(function(raw){
-        /* allorigins JSON 언래핑 */
-        var html=raw;
-        try{var d=JSON.parse(raw);html=d.contents||raw;}catch(e){}
-
-        var result=parseNaverGoldFull(html);
-        console.log('[금시세] 소스'+idx+' 파싱결과:', result);
-
-        if(result&&result.sell>50000){
-          GOLD_BUY_PRICE=result.buy||Math.round(result.sell*0.97);
-          applyGoldPrice(result.sell,'naver-live');
-        } else {
-          tryFetch(idx+1);
-        }
+        var result=parser(raw);
+        console.log('[금시세]',url.slice(0,55),'→',result);
+        return result;
       })
-      .catch(function(e){
-        console.warn('[금시세] 소스'+idx+' 실패:',e.message||e);
-        tryFetch(idx+1);
-      });
+      .catch(function(e){console.warn('[금시세 fetch 실패]',e.message||e);return null;});
   }
-  tryFetch(0);
+
+  /* 순차 시도: JSON → HTML(allorigins) → HTML(corsproxy) */
+  doFetch(JSON_URL, parseGoldJSON)
+    .then(function(res){ return res || doFetch(HTML_URL, parseGoldHTML); })
+    .then(function(res){ return res || doFetch(PROXY_URL, parseGoldHTML); })
+    .then(function(res){
+      if(res&&res.sell>50000){
+        GOLD_BUY_PRICE=res.buy||Math.round(res.sell*0.905);
+        applyGoldPrice(res.sell,'naver-live');
+      } else {
+        console.warn('[금시세] 모든 소스 실패 → Firebase 저장값');
+        loadGoldPriceFromFirebase();
+      }
+    })
+    .catch(function(){ loadGoldPriceFromFirebase(); });
 }
 
-/* 네이버 금시세 페이지 전체 파싱: 실물 살때 + 팔때 */
-function parseNaverGoldFull(html){
-  var sell=0,buy=0;
+/* goldDetailTime.naver JSON 파서 */
+function parseGoldJSON(raw){
+  try{
+    var outer=JSON.parse(raw);
+    var inner=outer.contents||raw;
+    var data=(typeof inner==='string')?JSON.parse(inner):inner;
+    var arr=data.result||data.chartData||data;
+    if(!Array.isArray(arr)||arr.length===0)return null;
+    var r=arr[0];
+    /* closePrice=사실때, openPrice=파실때 */
+    var sell=parseFloat((r.closePrice||r.highPrice||'0').toString().replace(/,/g,''));
+    var buy =parseFloat((r.openPrice ||r.lowPrice ||'0').toString().replace(/,/g,''));
+    if(sell>50000)return{sell:Math.round(sell),buy:Math.round(buy||sell*0.905)};
+  }catch(e){console.warn('[JSON파서]',e.message);}
+  return null;
+}
 
-  /* ── 패턴 A: "실물 살 때" / "실물 팔 때" 텍스트 주변 숫자 ── */
-  var buyWhenIdx=html.indexOf('살 때');
-  if(buyWhenIdx<0) buyWhenIdx=html.indexOf('살때');
-  if(buyWhenIdx>0){
-    /* 살때 다음 200자 안에서 숫자 */
-    var chunk=html.slice(buyWhenIdx,buyWhenIdx+300);
-    var m=chunk.match(/([\d]{2,3}[,\d]+\.?\d*)/);
-    if(m){ var p=parseFloat(m[1].replace(/,/g,'')); if(p>50000&&p<500000) sell=Math.round(p); }
-  }
-  var sellWhenIdx=html.indexOf('팔 때');
-  if(sellWhenIdx<0) sellWhenIdx=html.indexOf('팔때');
-  if(sellWhenIdx>0){
-    var chunk2=html.slice(sellWhenIdx,sellWhenIdx+300);
-    var m2=chunk2.match(/([\d]{2,3}[,\d]+\.?\d*)/);
-    if(m2){ var p2=parseFloat(m2[1].replace(/,/g,'')); if(p2>50000&&p2<500000) buy=Math.round(p2); }
-  }
+/* goldDetail.naver HTML 파서 */
+function parseGoldHTML(raw){
+  try{
+    var html=raw;
+    try{var d=JSON.parse(raw);html=d.contents||raw;}catch(e){}
+    var sell=0,buy=0;
 
-  /* ── 패턴 B: JSON 데이터 내 필드 ── */
-  if(!sell){
-    var jSell=html.match(/"(?:sell|buyWon|closePrice|highPrice)"\s*:\s*"?([\d,.]+)"?/);
-    if(jSell){ var p3=parseFloat(jSell[1].replace(/,/g,'')); if(p3>50000&&p3<500000) sell=Math.round(p3); }
-  }
-  if(!buy){
-    var jBuy=html.match(/"(?:buy|sellWon|openPrice|lowPrice)"\s*:\s*"?([\d,.]+)"?/);
-    if(jBuy){ var p4=parseFloat(jBuy[1].replace(/,/g,'')); if(p4>50000&&p4<500000) buy=Math.round(p4); }
-  }
-
-  /* ── 패턴 C: num 클래스 숫자 배열에서 첫 두 개 ── */
-  if(!sell){
-    var classNums=[];
-    var re=/"num"[^>]*>\s*([\d,]+(?:\.\d+)?)/g;
-    var match;
-    while((match=re.exec(html))!==null){
-      var v=parseFloat(match[1].replace(/,/g,''));
-      if(v>50000&&v<500000) classNums.push(Math.round(v));
+    /* 패턴1: gold_detail_realtime_tbody 안의 첫 두 num 숫자 */
+    var ti=html.indexOf('gold_detail_realtime_tbody');
+    if(ti<0)ti=html.indexOf('tbl_exchange');
+    if(ti>0){
+      var chunk=html.slice(ti,ti+2000);
+      /* 소수점 포함 숫자 (238,653.12 형태) */
+      var matches=chunk.match(/>[\s]*([\d]{2,3}[,\d]+\.\d{2})[\s]*</g)||[];
+      var vals=[];
+      matches.forEach(function(m){
+        var v=parseFloat(m.replace(/[<> ]/g,'').replace(/,/g,''));
+        if(v>50000&&v<500000)vals.push(Math.round(v));
+      });
+      if(vals.length>0)sell=vals[0];
+      if(vals.length>1)buy=vals[1];
     }
-    if(classNums.length>0) sell=classNums[0];
-    if(classNums.length>1&&!buy) buy=classNums[1];
-  }
 
-  /* ── 패턴 D: 범위 내 소수점 숫자 (신한은행 기준은 소수점 포함) ── */
-  if(!sell){
-    var decNums=html.match(/([1-9][\d]{2,}[,\d]*\.\d{1,2})/g)||[];
-    for(var i=0;i<decNums.length;i++){
-      var dv=parseFloat(decNums[i].replace(/,/g,''));
-      if(dv>50000&&dv<500000){
-        if(!sell) sell=Math.round(dv);
-        else if(!buy&&dv<sell) buy=Math.round(dv);
-        if(sell&&buy) break;
+    /* 패턴2: 사실때/파실때 텍스트 인접 숫자 */
+    if(!sell){
+      var pairs=[['사실 때','파실 때'],['살 때','팔 때'],['사실때','파실때']];
+      for(var i=0;i<pairs.length;i++){
+        var bi=html.indexOf(pairs[i][0]);
+        if(bi>0){var bm=html.slice(bi,bi+300).match(/([\d]{2,3}[,\d]+\.?\d*)/);
+          if(bm){var bv=parseFloat(bm[1].replace(/,/g,''));if(bv>50000&&bv<500000)sell=Math.round(bv);}}
+        var si=html.indexOf(pairs[i][1]);
+        if(si>0){var sm=html.slice(si,si+300).match(/([\d]{2,3}[,\d]+\.?\d*)/);
+          if(sm){var sv=parseFloat(sm[1].replace(/,/g,''));if(sv>50000&&sv<500000)buy=Math.round(sv);}}
+        if(sell&&buy)break;
       }
     }
-  }
 
-  if(!sell) return null;
-  return {sell:sell, buy:buy||Math.round(sell*0.91)};
+    /* 패턴3: 소수점 포함 숫자 쌍 */
+    if(!sell){
+      var dp=html.match(/([1-9][\d]{2,}[,\d]*\.\d{2})/g)||[];
+      var gv=[];
+      dp.forEach(function(s){var v=parseFloat(s.replace(/,/g,''));if(v>50000&&v<500000)gv.push(Math.round(v));});
+      if(gv.length>0)sell=gv[0];
+      if(gv.length>1)buy=gv[1];
+    }
+
+    if(sell>50000)return{sell:sell,buy:buy||Math.round(sell*0.905)};
+  }catch(e){console.warn('[HTML파서]',e.message);}
+  return null;
 }
 
 function applyGoldPrice(price,source){
@@ -1048,18 +1055,18 @@ function updateBanner(){
     var bp=ge('bannerBuyPrice');if(bp)bp.textContent='—';
     return;
   }
-  /* 실물 살때(1g) = GOLD_PRICE_PER_G */
-  var sellPer1g = GOLD_PRICE_PER_G;
-  /* 실물 팔때(1g) = GOLD_BUY_PRICE (없으면 살때×0.91 추정) */
-  var buyPer1g  = GOLD_BUY_PRICE>0 ? GOLD_BUY_PRICE : Math.round(sellPer1g*0.91);
-  /* 1돈(3.75g) 기준 */
-  var sellDon = Math.round(sellPer1g*3.75);
-  var buyDon  = Math.round(buyPer1g*3.75);
+  /* 네이버 신한은행 기준
+     사실 때(1g) = GOLD_PRICE_PER_G
+     파실 때(1g) = GOLD_BUY_PRICE (없으면 사실때 × 0.905 추정) */
+  var buyWon  = GOLD_PRICE_PER_G;                                      /* 사실때 1g */
+  var sellWon = GOLD_BUY_PRICE>0 ? GOLD_BUY_PRICE : Math.round(buyWon*0.905); /* 파실때 1g */
+  var buyDon  = Math.round(buyWon  * 3.75);  /* 사실때 1돈 */
+  var sellDon = Math.round(sellWon * 3.75);  /* 파실때 1돈 */
 
-  ge('bannerGoldPrice').textContent = nf(Math.round(sellPer1g))+'원';
-  ge('bannerBuyPrice').textContent  = nf(Math.round(buyPer1g))+'원';
-  ge('bannerSamsungPrice').textContent = nf(sellDon)+'원';
-  ge('bannerKoreaPrice').textContent   = nf(buyDon)+'원';
+  ge('bannerGoldPrice').textContent    = nf(Math.round(buyWon))+'원';
+  ge('bannerBuyPrice').textContent     = nf(Math.round(sellWon))+'원';
+  ge('bannerSamsungPrice').textContent = nf(buyDon)+'원';
+  ge('bannerKoreaPrice').textContent   = nf(sellDon)+'원';
 
   var now=new Date();
   var timeStr=now.getHours()+'시'+String(now.getMinutes()).padStart(2,'0')+'분';
