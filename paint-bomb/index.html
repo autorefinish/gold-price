@@ -139,7 +139,7 @@ const sx = (wx, y) => W / 2 + wx * halfRoad(y);
 
 // ---------- Art assets (generated with Higgsfield) ----------
 const IMG = {};
-const ASSETS = ['bg', 'player', 'shield', ...['grunt', 'runner', 'tank', 'boss', 'knight', 'bat', 'splitter', 'chameleon'].flatMap(k => [k + '_goo', k + '_rest'])];
+const ASSETS = ['bg', 'player', 'shield', ...['pistol', 'shotgun', 'gatling', 'bazooka', 'laser', 'homing', 'bounce', 'roller'].map(w => 'w_' + w), ...['grunt', 'runner', 'tank', 'boss', 'knight', 'bat', 'splitter', 'chameleon'].flatMap(k => [k + '_goo', k + '_rest'])];
 let assetsLeft = ASSETS.length;
 const assetsReady = new Promise(res => {
   ASSETS.forEach(n => {
@@ -215,7 +215,12 @@ const WEAPONS = {
   shotgun: { name: '샷건',      rate: 1.9, shots: 3, spread: 0.22, speed: 560, r: 7,  splash: 18 },
   gatling: { name: '개틀링',    rate: 9.5, shots: 1, spread: 0.05, speed: 760, r: 5,  splash: 0  },
   bazooka: { name: '바주카',    rate: 1.1, shots: 1, spread: 0.0,  speed: 420, r: 12, splash: 78 },
+  laser:   { name: '레이저',    rate: 2.2, shots: 1, spread: 0.0,  speed: 1300, r: 10, splash: 0,  kind: 'pierce' },
+  homing:  { name: '유도 미사일', rate: 1.5, shots: 2, spread: 0.9, speed: 400, r: 8,  splash: 30, kind: 'homing' },
+  bounce:  { name: '바운스 볼',  rate: 2.0, shots: 1, spread: 0.0,  speed: 560, r: 9,  splash: 14, kind: 'bounce', bounces: 3 },
+  roller:  { name: '페인트 롤러', rate: 0.75, shots: 1, spread: 0.0, speed: 300, r: 10, splash: 0,  kind: 'wave' },
 };
+const WEAPON_SFX = { pistol: 900, shotgun: 500, gatling: 1200, bazooka: 160, laser: 1800, homing: 420, bounce: 700, roller: 120 };
 
 // ---------- Stages ----------
 const STAGES = [
@@ -375,7 +380,11 @@ const GOOD_GATES = [
   { label: '샷건', icon: '🔶', weapon: 'shotgun', apply: () => { S.weapon = 'shotgun'; } },
   { label: '개틀링', icon: '🔷', weapon: 'gatling', apply: () => { S.weapon = 'gatling'; } },
   { label: '바주카', icon: '🚀', weapon: 'bazooka', apply: () => { S.weapon = 'bazooka'; } },
-  { label: '페인트 건', icon: '🎯', weapon: 'pistol', apply: () => { S.weapon = 'pistol'; } },
+  { label: '페인트 건', icon: '🖌️', weapon: 'pistol', apply: () => { S.weapon = 'pistol'; } },
+  { label: '레이저', icon: '🔆', weapon: 'laser', apply: () => { S.weapon = 'laser'; } },
+  { label: '유도 미사일', icon: '🎯', weapon: 'homing', apply: () => { S.weapon = 'homing'; } },
+  { label: '바운스 볼', icon: '🏀', weapon: 'bounce', apply: () => { S.weapon = 'bounce'; } },
+  { label: '페인트 롤러', icon: '🧻', weapon: 'roller', apply: () => { S.weapon = 'roller'; } },
 ];
 const BAD_GATES = [
   { label: '-1 탄', icon: '🔻', bad: true, apply: () => { S.extra = Math.max(0, S.extra - 1); } },
@@ -496,19 +505,28 @@ function fire() {
   const isThin = S.paint === THINNER;
   if (isThin && S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); }
   const x0 = sx(G.px, G.py) + 24, y0 = G.py - 78;
-  const lanes = 1 + S.extra;
-  for (let l = 0; l < lanes; l++) {
-    const off = (l - (lanes - 1) / 2) * 13;
-    for (let s = 0; s < w.shots; s++) {
-      const ang = (s - (w.shots - 1) / 2) * w.spread + rnd(-0.02, 0.02);
-      G.bullets.push({
-        x: x0 + off, y: y0, vx: Math.sin(ang) * w.speed, vy: -Math.cos(ang) * w.speed,
-        c: S.paint, r: w.r, splash: w.splash * S.splashMul,
-      });
+  const base = { c: S.paint, r: w.r, splash: w.splash * S.splashMul, kind: w.kind || 'ball', hits: new Set(), bounces: w.bounces || 0, age: 0 };
+  if (w.kind === 'wave') {
+    // one wide roller wave; extra ammo makes it wider instead of adding waves
+    G.bullets.push({ ...base, x: x0 - 24, y: y0 + 10, vx: 0, vy: -w.speed, half: 62 * (1 + S.extra * 0.22), hits: new Set() });
+  } else {
+    const lanes = 1 + S.extra;
+    for (let l = 0; l < lanes; l++) {
+      const off = (l - (lanes - 1) / 2) * 13;
+      for (let k = 0; k < w.shots; k++) {
+        const ang = (k - (w.shots - 1) / 2) * w.spread + rnd(-0.02, 0.02);
+        G.bullets.push({ ...base, hits: new Set(), x: x0 + off, y: y0, vx: Math.sin(ang) * w.speed, vy: -Math.cos(ang) * w.speed });
+      }
     }
   }
   if (S.paint === THINNER) { S.thinner--; refreshControls(); if (S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); } }
-  beep(S.weapon === 'bazooka' ? 160 : 900, .04, 'square', .015, -200);
+  beep(WEAPON_SFX[S.weapon], S.weapon === 'laser' ? .08 : .04, S.weapon === 'laser' ? 'sawtooth' : 'square', .015, S.weapon === 'laser' ? -1200 : -200);
+}
+function targets() { return G.boss ? [...G.enemies, G.boss] : G.enemies; }
+function touching(bl, e, extra = 0) {
+  if (e.dead) return false;
+  const ex = sx(e.wx, e.y), er = e.r * persp(e.y);
+  return Math.hypot(ex - bl.x, e.y - bl.y) < er + bl.r + extra;
 }
 
 function explode(bl, hitEnemy) {
@@ -566,20 +584,58 @@ function update(dt) {
 
   // bullets
   for (const bl of G.bullets) {
+    bl.age += dt;
+    if (bl.kind === 'homing') {
+      // steer toward the nearest enemy ahead
+      let best = null, bd = 1e9;
+      for (const e of targets()) {
+        if (e.dead || e.y > bl.y + 10) continue;
+        const d = Math.hypot(sx(e.wx, e.y) - bl.x, e.y - bl.y); if (d < bd) { bd = d; best = e; }
+      }
+      if (best && bl.age > 0.08) {
+        const want = Math.atan2(best.y - bl.y, sx(best.wx, best.y) - bl.x), cur = Math.atan2(bl.vy, bl.vx);
+        let d = want - cur; while (d > Math.PI) d -= Math.PI * 2; while (d < -Math.PI) d += Math.PI * 2;
+        const na = cur + Math.max(-7 * dt, Math.min(7 * dt, d)), sp = Math.hypot(bl.vx, bl.vy) + 260 * dt;
+        bl.vx = Math.cos(na) * sp; bl.vy = Math.sin(na) * sp;
+      }
+      if (Math.random() < 0.6) G.parts.push({ x: bl.x, y: bl.y, vx: rnd(-20, 20), vy: rnd(-20, 20), life: .25, r: 2.5, col: '#ffd9a0' });
+    }
     bl.x += bl.vx * dt; bl.y += bl.vy * dt;
-    if (bl.y < VP_Y || bl.x < -20 || bl.x > W + 20) { bl.dead = true; continue; }
-    // collisions
+    if (bl.y < VP_Y || bl.x < -30 || bl.x > W + 30 || bl.y > H + 20 || bl.age > 3) { bl.dead = true; continue; }
+
+    if (bl.kind === 'wave') {
+      const half = bl.half * persp(bl.y);
+      for (const e of targets()) {
+        if (e.dead || bl.hits.has(e)) continue;
+        const ex = sx(e.wx, e.y), er = e.r * persp(e.y);
+        if (Math.abs(ex - bl.x) < half + er && Math.abs(e.y - bl.y) < er + 8) {
+          bl.hits.add(e); paintEnemy(e, bl.c, e === G.boss);
+          splat(ex, e.y, bl.c === THINNER ? '#cfe8f5' : COLOR[bl.c].hex, er * 1.2);
+        }
+      }
+      continue;
+    }
     let hit = null;
-    for (const e of G.enemies) {
-      if (e.dead) continue;
-      const ex = sx(e.wx, e.y), er = e.r * persp(e.y);
-      if (Math.hypot(ex - bl.x, e.y - bl.y) < er + bl.r) { hit = e; break; }
+    for (const e of targets()) { if (!bl.hits.has(e) && touching(bl, e)) { hit = e; break; } }
+    if (!hit) continue;
+    bl.hits.add(hit);
+    if (bl.kind === 'pierce') { explode(bl, hit); continue; }   // laser keeps going
+    explode(bl, hit);
+    if (bl.kind === 'bounce' && bl.bounces > 0) {
+      bl.bounces--;
+      let best = null, bd = 230;
+      for (const e of targets()) {
+        if (e.dead || bl.hits.has(e)) continue;
+        const d = Math.hypot(sx(e.wx, e.y) - bl.x, e.y - bl.y); if (d < bd) { bd = d; best = e; }
+      }
+      if (best) {
+        const a = Math.atan2(best.y - bl.y, sx(best.wx, best.y) - bl.x), sp = Math.hypot(bl.vx, bl.vy);
+        bl.vx = Math.cos(a) * sp; bl.vy = Math.sin(a) * sp; bl.bounced = 0.15;
+        beep(900 + bl.bounces * 200, .05, 'triangle', .03, 300);
+        continue;
+      }
     }
-    if (!hit && G.boss) {
-      const b = G.boss, bx = sx(b.wx, b.y);
-      if (Math.hypot(bx - bl.x, b.y - bl.y) < b.r * persp(b.y) + bl.r) hit = b;
-    }
-    if (hit) { bl.dead = true; explode(bl, hit); }
+    bl.dead = true;
   }
   G.bullets = G.bullets.filter(b => !b.dead);
 
@@ -721,18 +777,54 @@ function draw() {
   for (const e of ents) e === G.boss ? drawBoss(e) : drawEnemy(e);
   for (const c of G.corpses) drawCorpse(c);
 
-  // bullets: glossy paint balls with a short trail
+  // bullets
   for (const bl of G.bullets) {
     const hex = bl.c === THINNER ? '#cfe8f5' : COLOR[bl.c].hex;
     const r = bl.r * (0.55 + persp(bl.y) * 0.6);
+    if (bl.kind === 'wave') {
+      const half = bl.half * persp(bl.y), th = 12 * persp(bl.y) + 4;
+      ctx.save(); ctx.shadowColor = hex; ctx.shadowBlur = 14;
+      const g = ctx.createLinearGradient(0, bl.y - th, 0, bl.y + th * 2.5);
+      g.addColorStop(0, shade(hex, 0.45)); g.addColorStop(0.35, hex); g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.moveTo(bl.x - half, bl.y + th * 2.5);
+      ctx.quadraticCurveTo(bl.x - half, bl.y - th, bl.x, bl.y - th * 1.2);
+      ctx.quadraticCurveTo(bl.x + half, bl.y - th, bl.x + half, bl.y + th * 2.5); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.beginPath(); ctx.ellipse(bl.x, bl.y - th * 0.5, half * 0.7, th * 0.25, 0, 0, 7); ctx.fill();
+      continue;
+    }
     const len = Math.hypot(bl.vx, bl.vy), tx = -bl.vx / len, ty = -bl.vy / len;
-    const tg = ctx.createLinearGradient(bl.x, bl.y, bl.x + tx * r * 5, bl.y + ty * r * 5);
+    if (bl.kind === 'pierce') {
+      const L = 46 * persp(bl.y) + 14;
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = hex; ctx.lineWidth = r * 2.4; ctx.globalAlpha = 0.45;
+      ctx.beginPath(); ctx.moveTo(bl.x, bl.y); ctx.lineTo(bl.x + tx * L, bl.y + ty * L); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = r * 0.9;
+      ctx.beginPath(); ctx.moveTo(bl.x, bl.y); ctx.lineTo(bl.x + tx * L * 0.8, bl.y + ty * L * 0.8); ctx.stroke();
+      continue;
+    }
+    const tl = bl.kind === 'homing' ? 3 : 5;
+    const tg = ctx.createLinearGradient(bl.x, bl.y, bl.x + tx * r * tl, bl.y + ty * r * tl);
     tg.addColorStop(0, hex); tg.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.strokeStyle = tg; ctx.lineWidth = r * 1.5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(bl.x, bl.y); ctx.lineTo(bl.x + tx * r * 5, bl.y + ty * r * 5); ctx.stroke();
-    const bg = ctx.createRadialGradient(bl.x - r * 0.35, bl.y - r * 0.35, r * 0.1, bl.x, bl.y, r);
+    ctx.beginPath(); ctx.moveTo(bl.x, bl.y); ctx.lineTo(bl.x + tx * r * tl, bl.y + ty * r * tl); ctx.stroke();
+    if (bl.kind === 'homing') {
+      // little missile: body pointing along velocity
+      ctx.save(); ctx.translate(bl.x, bl.y); ctx.rotate(Math.atan2(bl.vy, bl.vx));
+      ctx.fillStyle = '#ffb347'; ctx.beginPath(); ctx.moveTo(-r * 1.6, -r * 0.9); ctx.lineTo(-r * 0.9, 0); ctx.lineTo(-r * 1.6, r * 0.9); ctx.fill();
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.ellipse(0, 0, r * 1.3, r * 0.65, 0, 0, 7); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(r * 0.5, -r * 0.2, r * 0.35, r * 0.2, 0, 0, 7); ctx.fill();
+      ctx.restore();
+      continue;
+    }
+    const rr = bl.kind === 'bounce' && bl.bounced > 0 ? r * 1.3 : r;
+    if (bl.bounced > 0) bl.bounced -= 1 / 60;
+    const bg = ctx.createRadialGradient(bl.x - rr * 0.35, bl.y - rr * 0.35, rr * 0.1, bl.x, bl.y, rr);
     bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.35, hex); bg.addColorStop(1, shade(hex, -0.35));
-    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bl.x, bl.y, r, 0, 7); ctx.fill();
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bl.x, bl.y, rr, 0, 7); ctx.fill();
+    if (bl.kind === 'bounce') { ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(bl.x, bl.y, rr * 0.65, -0.5, 1.8); ctx.stroke(); }
   }
 
   drawPlayer();
@@ -899,7 +991,9 @@ function drawGate(g) {
     ctx.textAlign = 'center'; ctx.fillStyle = '#fff';
     ctx.font = `900 ${Math.round(22 * p)}px system-ui, sans-serif`;
     ctx.lineWidth = 4 * p; ctx.strokeStyle = 'rgba(0,0,0,.55)';
-    ctx.strokeText(opt.icon, (xl + xr) / 2, top + h * 0.48); ctx.fillText(opt.icon, (xl + xr) / 2, top + h * 0.48);
+    const wim = opt.weapon && IMG['w_' + opt.weapon];
+    if (wim && wim.naturalWidth) { const ih = h * 0.62; ctx.drawImage(wim, (xl + xr) / 2 - ih / 2, top + h * 0.04, ih, ih); }
+    else { ctx.strokeText(opt.icon, (xl + xr) / 2, top + h * 0.48); ctx.fillText(opt.icon, (xl + xr) / 2, top + h * 0.48); }
     ctx.font = `900 ${Math.round(15 * p)}px system-ui, sans-serif`;
     ctx.strokeText(opt.label, (xl + xr) / 2, top + h * 0.85); ctx.fillText(opt.label, (xl + xr) / 2, top + h * 0.85);
   }
@@ -967,8 +1061,11 @@ function drawHUD() {
   ctx.font = '12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('👑', W - 18, 80);
   // weapon info
   ctx.textAlign = 'left'; ctx.font = '700 11.5px system-ui, sans-serif'; ctx.fillStyle = '#d8d2ec';
+  const wim = IMG['w_' + S.weapon];
+  let wx0 = 18;
+  if (wim && wim.naturalWidth) { ctx.drawImage(wim, 14, 82, 24, 24); wx0 = 42; }
   const wi = `${WEAPONS[S.weapon].name}  ·  ${1 + S.extra}줄  ·  연사 x${S.rateMul.toFixed(2)}  ·  폭발 x${S.splashMul.toFixed(1)}`;
-  ctx.fillText(wi, 18, 97);
+  ctx.fillText(wi, wx0, 97);
   if (G.combo >= 3) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = '900 13px system-ui'; ctx.fillText(G.combo + ' COMBO', W - 18, 97); }
 
   // new enemy banner
