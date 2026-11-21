@@ -173,7 +173,7 @@ const mixName = m => PRIMS.filter(p => m & p).map(p => COLOR[p].name).join(' + '
 const W = 420, H = 760;
 const cv = document.getElementById('cv');
 const ctx = cv.getContext('2d');
-let scale = 1;
+let scale = 1, pxRatio = 1;   // pxRatio: device pixels per game unit
 function resize() {
   const vw = window.innerWidth, vh = window.innerHeight;
   scale = Math.min(vw / W, vh / H);
@@ -184,6 +184,8 @@ function resize() {
   cv.height = Math.round(H * scale * dpr);
   ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
   ctx.imageSmoothingQuality = 'high';
+  const pr = scale * dpr;
+  if (Math.abs(pr - pxRatio) > 0.05) { pxRatio = pr; try { clearSpriteCache(); } catch (e) { /* cache not created yet on first call */ } }
   const g = document.getElementById('game');
   g.style.width = (W * scale) + 'px'; g.style.height = (H * scale) + 'px';
 }
@@ -212,13 +214,24 @@ const assetsReady = new Promise(res => {
 });
 // Paint goo layer is greyscale; multiply it by the enemy's paint colour, then lay the fixed parts (armor, crown, eyes) on top.
 const spriteCache = {};
+function clearSpriteCache() {
+  for (const k in spriteCache) delete spriteCache[k];
+  if (typeof shieldCache !== 'undefined') delete shieldCache.c;
+}
+// largest on-screen height (game units) a sprite kind ever reaches, so it is built at true device resolution
+function maxUnits(kind) {
+  if (BOSSES[kind]) return 62 * BOSSES[kind].size * 2.5 * 1.1;
+  let r = 0;
+  for (const t in TYPES) if (kindOf(t) === kind) r = Math.max(r, TYPES[t].r);
+  return r * 3.8 * 1.15;
+}
 function sprite(kind, mask) {
   const key = kind + mask;
   if (spriteCache[key]) return spriteCache[key];
   const goo = IMG[kind + '_goo'], rest = IMG[kind + '_rest'];
   if (!goo.naturalWidth) return null;
   // pre-scale once to roughly on-screen size so the browser never shrinks a big image per frame (avoids jaggy, fuzzy edges)
-  const SH = BOSSES[kind] ? 380 : 260, k = SH / goo.naturalHeight;
+  const SH = Math.min(goo.naturalHeight, Math.ceil(maxUnits(kind) * pxRatio * 1.05)), k = SH / goo.naturalHeight;
   const cw = Math.round(goo.naturalWidth * k), ch = SH;
   const c = document.createElement('canvas');
   c.width = cw; c.height = ch;
@@ -373,6 +386,7 @@ function newRun() {
 }
 let G; // per-stage
 function newStage() {
+  clearSpriteCache();   // only this stage's colours get rebuilt, keeps memory low on phones
   playMusic('bgm_stage');
   const cfg = stageCfg(S.stage);
   G = {
@@ -1124,11 +1138,11 @@ function drawEnemy(e) {
   } else drawNeed(x, e.y - r * 2.7 + bob - lift, e.mask, Math.max(0.7, p));
 }
 
-const shieldCache = {};
+var shieldCache = {};
 function drawShield(e, x, r, bob) {
   const im = IMG.shield; if (!im.naturalWidth) return;
   if (!shieldCache.c) {
-    const c = document.createElement('canvas'), H2 = 180; c.height = H2; c.width = Math.round(im.naturalWidth * H2 / im.naturalHeight);
+    const c = document.createElement('canvas'), H2 = Math.min(im.naturalHeight, Math.ceil(31 * 2.1 * 1.15 * pxRatio)); c.height = H2; c.width = Math.round(im.naturalWidth * H2 / im.naturalHeight);
     const cx = c.getContext('2d'); cx.imageSmoothingQuality = 'high'; cx.drawImage(im, 0, 0, c.width, c.height); shieldCache.c = c;
   }
   const c = shieldCache.c, h = r * 2.1, w = h * c.width / c.height;
