@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Paint Bomb Rush</title>
+<style>
+  :root {
+    --bg: #14131c;
+    --panel: rgba(20,19,28,.88);
+    --text: #f4f1ea;
+    --muted: #a9a4b8;
+    --accent: #ffd23f;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+    overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none; }
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #game { position: relative; }
+  canvas { display: block; border-radius: 14px; }
+  #controls { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; gap: 8px; justify-content: center; padding: 0 10px; }
+  .cbtn { flex: 1; max-width: 86px; height: 58px; border-radius: 14px; border: 3px solid rgba(255,255,255,.25);
+    font-weight: 800; font-size: 15px; color: #111; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    box-shadow: 0 4px 0 rgba(0,0,0,.35); cursor: pointer; }
+  .cbtn small { font-size: 11px; font-weight: 700; opacity: .8; }
+  .cbtn.sel { border-color: #fff; transform: translateY(-4px); box-shadow: 0 8px 0 rgba(0,0,0,.35), 0 0 0 3px rgba(255,255,255,.35); }
+  .cbtn.empty { opacity: .35; }
+  .overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 18px; }
+  .card { background: var(--panel); border: 1px solid rgba(255,255,255,.12); border-radius: 18px; padding: 20px 18px; width: 100%;
+    max-width: 380px; text-align: center; backdrop-filter: blur(6px); }
+  .card h1 { margin: 0 0 4px; font-size: 30px; letter-spacing: -.5px; }
+  .card h2 { margin: 0 0 10px; font-size: 22px; }
+  .card p { margin: 6px 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  .card .big { font-size: 40px; font-weight: 900; margin: 8px 0; }
+  .btn { margin-top: 14px; background: var(--accent); color: #111; border: 0; border-radius: 12px; padding: 14px 28px;
+    font-size: 18px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 0 #b38f10; }
+  .btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #b38f10; }
+  .mix { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0 4px; font-size: 13px; }
+  .mix div { background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px 2px; }
+  .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(0,0,0,.4); }
+  .hidden { display: none !important; }
+  .rules { text-align: left; font-size: 13.5px; color: var(--muted); line-height: 1.55; margin: 10px 0 0; padding-left: 18px; }
+  .rules b { color: var(--text); }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="game">
+    <canvas id="cv"></canvas>
+    <div id="controls" class="hidden"></div>
+
+    <div id="startScreen" class="overlay">
+      <div class="card">
+        <h1>🎨 페인트 밤 러시</h1>
+        <p>몰려오는 적을 <b style="color:#fff">목표 색</b>으로 칠하면 쓰러진다!</p>
+        <div class="mix" id="mixChart"></div>
+        <ul class="rules">
+          <li><b>드래그</b>로 좌우 이동, 사격은 자동</li>
+          <li>하단 버튼으로 <b>페인트 색</b> 교체</li>
+          <li>목표에 없는 색이 섞이면 <b>오염</b> → <b>신너</b>로 흰색 리셋</li>
+          <li>폭발 범위가 있어 <b>주변 적도 같이 칠해짐</b></li>
+          <li>도로 위 <b>게이트</b>를 골라 통과해 무기 강화</li>
+        </ul>
+        <button class="btn" id="startBtn">게임 시작</button>
+      </div>
+    </div>
+
+    <div id="msgScreen" class="overlay hidden">
+      <div class="card">
+        <h2 id="msgTitle"></h2>
+        <div id="msgBody"></div>
+        <button class="btn" id="msgBtn"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+// ---------- Colors (3-bit paint mask: R=1, Y=2, B=4) ----------
+const R = 1, Y = 2, B = 4, THINNER = -1;
+const COLOR = {
+  0: { name: '흰색', hex: '#f3f0ea' },
+  1: { name: '빨강', hex: '#e8383d' },
+  2: { name: '노랑', hex: '#ffd23f' },
+  4: { name: '파랑', hex: '#2f6fe4' },
+  3: { name: '주황', hex: '#ff8a1f' },
+  6: { name: '초록', hex: '#2fb457' },
+  5: { name: '보라', hex: '#8e44c9' },
+  7: { name: '갈색', hex: '#7a4e2d' },
+};
+const PRIMS = [R, Y, B];
+const mixName = m => PRIMS.filter(p => m & p).map(p => COLOR[p].name).join(' + ');
+
+// ---------- Canvas setup ----------
+const W = 420, H = 760;
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let scale = 1;
+function resize() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  scale = Math.min(vw / W, vh / H);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  cv.style.width = (W * scale) + 'px';
+  cv.style.height = (H * scale) + 'px';
+  cv.width = Math.round(W * scale * dpr);
+  cv.height = Math.round(H * scale * dpr);
+  ctx.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  const g = document.getElementById('game');
+  g.style.width = (W * scale) + 'px'; g.style.height = (H * scale) + 'px';
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Pseudo-perspective road: far (top) is narrow, near (bottom) is wide.
+const HORIZON = 112;
+const persp = y => 0.45 + 0.55 * Math.max(0, Math.min(1, (y - HORIZON) / (H - HORIZON)));
+const halfRoad = y => 190 * persp(y);
+const sx = (wx, y) => W / 2 + wx * halfRoad(y);
+
+// ---------- Audio (tiny synth) ----------
+let actx = null;
+function beep(freq, dur, type = 'square', vol = 0.04, slide = 0) {
+  if (!actx) return;
+  const t = actx.currentTime;
+  const o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t);
+  if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+}
+
+// ---------- Weapons ----------
+const WEAPONS = {
+  pistol:  { name: '페인트 건', rate: 4.0, shots: 1, spread: 0.0,  speed: 620, r: 7,  splash: 22 },
+  shotgun: { name: '샷건',      rate: 1.9, shots: 3, spread: 0.22, speed: 560, r: 7,  splash: 18 },
+  gatling: { name: '개틀링',    rate: 9.5, shots: 1, spread: 0.05, speed: 760, r: 5,  splash: 0  },
+  bazooka: { name: '바주카',    rate: 1.1, shots: 1, spread: 0.0,  speed: 420, r: 12, splash: 78 },
+};
+
+// ---------- Stages ----------
+const STAGES = [
+  { target: R | Y, pool: [0, 0, R, Y, R, Y],                 rate: 1.1, speed: 42, len: 38 },
+  { target: Y | B, pool: [0, Y, B, Y, B, R, 0],              rate: 1.3, speed: 46, len: 42 },
+  { target: R | B, pool: [0, R, B, Y, R, B, R | Y, Y | B],   rate: 1.5, speed: 50, len: 46 },
+  { target: 7,     pool: [0, R, Y, B, R | Y, Y | B, R | B],  rate: 1.6, speed: 52, len: 48 },
+];
+function stageCfg(n) {
+  if (n < STAGES.length) return STAGES[n];
+  const targets = [R | Y, Y | B, R | B, 7];
+  const t = targets[n % 4];
+  return { target: t, pool: [0, R, Y, B, R | Y, Y | B, R | B], rate: 1.6 + (n - 3) * 0.15, speed: 52 + (n - 3) * 4, len: 50 };
+}
+
+// ---------- State ----------
+let S;
+function newRun() {
+  S = {
+    stage: 0, score: 0, hp: 5, maxHp: 5,
+    weapon: 'pistol', extra: 0, rateMul: 1, splashMul: 1,
+    thinner: 8, paint: R,
+  };
+}
+let G; // per-stage
+function newStage() {
+  const cfg = stageCfg(S.stage);
+  G = {
+    cfg, t: 0, dist: 0, spawnT: 1.2, gateT: 6, fireT: 0,
+    px: 0, tx: 0, py: H - 150,
+    bullets: [], enemies: [], gates: [], parts: [], splats: [], texts: [],
+    boss: null, bossSpawned: false, intro: 2.4, combo: 0, comboT: 0, shake: 0, over: false, cleared: false,
+    roadOff: 0,
+  };
+  // the starting paint should be useful
+  const firstPrim = PRIMS.find(p => cfg.target & p);
+  S.paint = firstPrim;
+  S.thinner = Math.max(S.thinner, 6);
+  buildControls();
+}
+
+// ---------- Controls UI ----------
+const controls = document.getElementById('controls');
+function buildControls() {
+  controls.innerHTML = '';
+  const opts = [R, Y, B, THINNER];
+  opts.forEach((c, i) => {
+    const b = document.createElement('div');
+    b.className = 'cbtn';
+    b.dataset.c = c;
+    if (c === THINNER) {
+      b.style.background = 'linear-gradient(#e9f6ff,#bfd9e8)';
+      b.innerHTML = `🧴 신너<small id="thinCount">${S.thinner}</small>`;
+    } else {
+      b.style.background = COLOR[c].hex;
+      if (c === B) b.style.color = '#fff';
+      if (c === R) b.style.color = '#fff';
+      b.innerHTML = `${COLOR[c].name}<small>${i + 1}</small>`;
+    }
+    const pick = e => { e.preventDefault(); e.stopPropagation(); selectPaint(c); };
+    b.addEventListener('pointerdown', pick);
+    controls.appendChild(b);
+  });
+  refreshControls();
+}
+function refreshControls() {
+  [...controls.children].forEach(b => {
+    const c = +b.dataset.c;
+    b.classList.toggle('sel', c === S.paint);
+    if (c === THINNER) {
+      b.classList.toggle('empty', S.thinner <= 0);
+      const tc = b.querySelector('#thinCount'); if (tc) tc.textContent = S.thinner;
+    }
+  });
+}
+function selectPaint(c) {
+  if (c === THINNER && S.thinner <= 0) { beep(140, .12, 'sawtooth', .03); return; }
+  S.paint = c; refreshControls(); beep(520, .05, 'triangle', .04);
+}
+
+// ---------- Input ----------
+let dragging = false, lastX = 0;
+cv.addEventListener('pointerdown', e => { dragging = true; lastX = e.clientX; cv.setPointerCapture(e.pointerId); });
+cv.addEventListener('pointermove', e => {
+  if (!dragging || !G) return;
+  const dx = (e.clientX - lastX) / scale; lastX = e.clientX;
+  G.tx = Math.max(-0.92, Math.min(0.92, G.tx + dx / halfRoad(G.py) * 1.15));
+});
+const endDrag = () => { dragging = false; };
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+const keys = {};
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === '1') selectPaint(R);
+  if (e.key === '2') selectPaint(Y);
+  if (e.key === '3') selectPaint(B);
+  if (e.key === '4') selectPaint(THINNER);
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// ---------- Spawning ----------
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+function spawnEnemy() {
+  const cfg = G.cfg;
+  const roll = Math.random();
+  let type = 'grunt';
+  if (S.stage >= 1 && roll < 0.18) type = 'runner';
+  else if (S.stage >= 2 && roll > 0.9) type = 'tank';
+  const base = { grunt: { r: 22, sp: 1 }, runner: { r: 16, sp: 1.7 }, tank: { r: 31, sp: 0.62 } }[type];
+  const count = type === 'grunt' && Math.random() < 0.35 ? 3 : 1;
+  const cx = rnd(-0.75, 0.75);
+  const mask = pick(cfg.pool);
+  for (let i = 0; i < count; i++) {
+    G.enemies.push({
+      wx: Math.max(-0.9, Math.min(0.9, cx + (i - (count - 1) / 2) * 0.17)),
+      y: HORIZON - 10 - i * 8 - Math.random() * 10,
+      type, r: base.r, speed: cfg.speed * base.sp * rnd(0.9, 1.1),
+      mask: count > 1 && Math.random() < 0.4 ? pick(cfg.pool) : mask,
+      flash: 0, wob: Math.random() * 6, hp: type === 'tank' ? 2 : 1, dead: false,
+    });
+  }
+}
+
+const GOOD_GATES = [
+  { label: '+1 탄', icon: '🔫', apply: () => { S.extra = Math.min(S.extra + 1, 4); } },
+  { label: '연사 +25%', icon: '⚡', apply: () => { S.rateMul = Math.min(S.rateMul * 1.25, 3); } },
+  { label: '폭발 +30%', icon: '💥', apply: () => { S.splashMul = Math.min(S.splashMul * 1.3, 2.6); } },
+  { label: '신너 +5', icon: '🧴', apply: () => { S.thinner += 5; refreshControls(); } },
+  { label: '체력 +1', icon: '❤️', apply: () => { S.hp = Math.min(S.maxHp, S.hp + 1); } },
+  { label: '샷건', icon: '🔶', weapon: 'shotgun', apply: () => { S.weapon = 'shotgun'; } },
+  { label: '개틀링', icon: '🔷', weapon: 'gatling', apply: () => { S.weapon = 'gatling'; } },
+  { label: '바주카', icon: '🚀', weapon: 'bazooka', apply: () => { S.weapon = 'bazooka'; } },
+  { label: '페인트 건', icon: '🎯', weapon: 'pistol', apply: () => { S.weapon = 'pistol'; } },
+];
+const BAD_GATES = [
+  { label: '-1 탄', icon: '🔻', bad: true, apply: () => { S.extra = Math.max(0, S.extra - 1); } },
+  { label: '연사 -20%', icon: '🐌', bad: true, apply: () => { S.rateMul = Math.max(0.6, S.rateMul * 0.8); } },
+  { label: '신너 -3', icon: '💧', bad: true, apply: () => { S.thinner = Math.max(0, S.thinner - 3); refreshControls(); } },
+];
+function spawnGate() {
+  const goods = GOOD_GATES.filter(g => !g.weapon || g.weapon !== S.weapon);
+  const a = pick(goods);
+  let b = Math.random() < 0.45 ? pick(BAD_GATES) : pick(goods.filter(g => g !== a));
+  const pair = Math.random() < 0.5 ? [a, b] : [b, a];
+  G.gates.push({ y: HORIZON - 20, opts: pair, used: false });
+}
+
+function spawnBoss() {
+  G.bossSpawned = true;
+  const startMasks = PRIMS.filter(p => p !== G.cfg.target);
+  G.boss = {
+    wx: 0, y: HORIZON + 20, r: 54, speed: 16 + S.stage * 2,
+    mask: pick([0, ...startMasks]), hp: 5 + S.stage, maxHp: 5 + S.stage, flash: 0, wob: 0, hitCd: 0,
+  };
+  addText(W / 2, H * 0.32, '⚠ 보스 등장!', '#ff5a5a', 30, 1.6);
+  beep(110, .6, 'sawtooth', .05, -50);
+}
+
+// ---------- Effects ----------
+function addText(x, y, s, col, size = 18, life = 0.9) { G.texts.push({ x, y, s, col, size, life, max: life }); }
+function burst(x, y, hex, n = 14, spd = 160) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2, v = rnd(spd * 0.3, spd);
+    G.parts.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, life: rnd(.35, .8), r: rnd(2, 5), col: hex });
+  }
+}
+function splat(x, y, hex, r) {
+  G.splats.push({ x, y, hex, r, rot: Math.random() * 6, life: 6 });
+  if (G.splats.length > 70) G.splats.shift();
+}
+
+// ---------- Paint logic ----------
+const contaminated = m => (m & ~G.cfg.target) !== 0;
+function paintEnemy(e, c, isBoss) {
+  const before = e.mask;
+  e.mask = c === THINNER ? 0 : (e.mask | c);
+  e.flash = 0.12;
+  if (e.mask === G.cfg.target) {
+    if (isBoss) return bossHit(e);
+    e.hp--;
+    if (e.hp <= 0) killEnemy(e);
+    else { e.mask = pick(PRIMS.filter(p => p !== G.cfg.target)); addText(sx(e.wx, e.y), e.y - 30, '한 번 더!', '#fff', 15); }
+  } else if (!contaminated(before) && contaminated(e.mask)) {
+    addText(sx(e.wx, e.y), e.y - 28, '오염!', '#c99a6b', 15, .7);
+  }
+}
+function killEnemy(e) {
+  e.dead = true;
+  const x = sx(e.wx, e.y);
+  G.combo++; G.comboT = 1.6;
+  const pts = (e.type === 'tank' ? 30 : e.type === 'runner' ? 15 : 10) * Math.min(5, 1 + Math.floor(G.combo / 5));
+  S.score += pts;
+  burst(x, e.y, COLOR[G.cfg.target].hex, 18, 220);
+  splat(x, e.y, COLOR[G.cfg.target].hex, e.r * persp(e.y) * 1.8);
+  addText(x, e.y - 20, '+' + pts, '#fff', 16, .7);
+  if (G.combo > 0 && G.combo % 10 === 0) addText(W / 2, H * 0.45, G.combo + ' 콤보!', '#ffd23f', 28, 1);
+  beep(660 + Math.random() * 200, .09, 'triangle', .05, 300);
+}
+function bossHit(b) {
+  if (b.hitCd > 0) return;
+  b.hp--; b.hitCd = 0.5; G.shake = 0.3;
+  S.score += 100;
+  const x = sx(b.wx, b.y);
+  burst(x, b.y, COLOR[G.cfg.target].hex, 30, 280);
+  addText(x, b.y - 70, '명중! +100', '#ffd23f', 22, 1);
+  beep(220, .25, 'square', .06, -100);
+  if (b.hp <= 0) { stageClear(); return; }
+  // boss changes colour: sometimes a contaminating one
+  const opts = [0, ...PRIMS.filter(p => p !== G.cfg.target)];
+  if (S.stage >= 1) opts.push(...PRIMS.filter(p => !(G.cfg.target & p)));
+  b.mask = pick(opts);
+}
+
+// ---------- Firing ----------
+function fire() {
+  const w = WEAPONS[S.weapon];
+  const isThin = S.paint === THINNER;
+  if (isThin && S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); }
+  const x0 = sx(G.px, G.py), y0 = G.py - 30;
+  const lanes = 1 + S.extra;
+  for (let l = 0; l < lanes; l++) {
+    const off = (l - (lanes - 1) / 2) * 13;
+    for (let s = 0; s < w.shots; s++) {
+      const ang = (s - (w.shots - 1) / 2) * w.spread + rnd(-0.02, 0.02);
+      G.bullets.push({
+        x: x0 + off, y: y0, vx: Math.sin(ang) * w.speed, vy: -Math.cos(ang) * w.speed,
+        c: S.paint, r: w.r, splash: w.splash * S.splashMul,
+      });
+    }
+  }
+  if (S.paint === THINNER) { S.thinner--; refreshControls(); if (S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); } }
+  beep(S.weapon === 'bazooka' ? 160 : 900, .04, 'square', .015, -200);
+}
+
+function explode(bl, hitEnemy) {
+  const hex = bl.c === THINNER ? '#cfe8f5' : COLOR[bl.c].hex;
+  burst(bl.x, bl.y, hex, bl.splash > 50 ? 22 : 8, bl.splash > 50 ? 240 : 120);
+  splat(bl.x, bl.y, hex, 6 + bl.splash * 0.25);
+  const touched = new Set();
+  if (hitEnemy) touched.add(hitEnemy);
+  if (bl.splash > 0) {
+    for (const e of G.enemies) {
+      if (e.dead || touched.has(e)) continue;
+      const ex = sx(e.wx, e.y), er = e.r * persp(e.y);
+      if (Math.hypot(ex - bl.x, e.y - bl.y) < bl.splash + er) touched.add(e);
+    }
+    if (G.boss && !touched.has(G.boss)) {
+      const b = G.boss, bx = sx(b.wx, b.y);
+      if (Math.hypot(bx - bl.x, b.y - bl.y) < bl.splash + b.r * persp(b.y)) touched.add(b);
+    }
+    if (bl.splash > 50) { G.shake = Math.max(G.shake, 0.15); beep(90, .2, 'sawtooth', .05, -40); }
+  }
+  for (const e of touched) if (!e.dead) paintEnemy(e, bl.c, e === G.boss);
+}
+
+// ---------- Update ----------
+function update(dt) {
+  if (G.over || G.cleared) return;
+  G.t += dt;
+  if (G.intro > 0) { G.intro -= dt; }
+
+  // movement
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) G.tx = Math.max(-0.92, G.tx - 2.2 * dt);
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) G.tx = Math.min(0.92, G.tx + 2.2 * dt);
+  G.px += (G.tx - G.px) * Math.min(1, dt * 14);
+
+  G.roadOff = (G.roadOff + dt * 120) % 60;
+
+  if (G.intro > 0) return;
+
+  // progress + spawning
+  if (!G.bossSpawned) {
+    G.dist += dt / G.cfg.len;
+    G.spawnT -= dt;
+    if (G.spawnT <= 0) { spawnEnemy(); G.spawnT = rnd(0.7, 1.3) / G.cfg.rate * 1.35; }
+    G.gateT -= dt;
+    if (G.gateT <= 0 && G.dist < 0.92) { spawnGate(); G.gateT = rnd(7, 10); }
+    if (G.dist >= 1) spawnBoss();
+  }
+
+  // fire
+  G.fireT -= dt;
+  if (G.fireT <= 0) { fire(); G.fireT = 1 / (WEAPONS[S.weapon].rate * S.rateMul); }
+
+  // bullets
+  for (const bl of G.bullets) {
+    bl.x += bl.vx * dt; bl.y += bl.vy * dt;
+    if (bl.y < HORIZON - 30 || bl.x < -20 || bl.x > W + 20) { bl.dead = true; continue; }
+    // collisions
+    let hit = null;
+    for (const e of G.enemies) {
+      if (e.dead) continue;
+      const ex = sx(e.wx, e.y), er = e.r * persp(e.y);
+      if (Math.hypot(ex - bl.x, e.y - bl.y) < er + bl.r) { hit = e; break; }
+    }
+    if (!hit && G.boss) {
+      const b = G.boss, bx = sx(b.wx, b.y);
+      if (Math.hypot(bx - bl.x, b.y - bl.y) < b.r * persp(b.y) + bl.r) hit = b;
+    }
+    if (hit) { bl.dead = true; explode(bl, hit); }
+  }
+  G.bullets = G.bullets.filter(b => !b.dead);
+
+  // enemies
+  for (const e of G.enemies) {
+    if (e.dead) continue;
+    e.wob += dt * 8;
+    e.y += e.speed * dt * (0.6 + persp(e.y) * 0.9);
+    e.wx += Math.sin(e.wob * 0.3) * dt * 0.05;
+    if (e.flash > 0) e.flash -= dt;
+    if (e.y > G.py - 10) {
+      e.dead = true; hurt(e.type === 'tank' ? 2 : 1);
+      burst(sx(e.wx, e.y), e.y, '#ff4040', 12, 160);
+    }
+  }
+  G.enemies = G.enemies.filter(e => !e.dead);
+
+  // boss
+  if (G.boss) {
+    const b = G.boss;
+    b.wob += dt; b.hitCd -= dt; if (b.flash > 0) b.flash -= dt;
+    b.y = Math.min(b.y + b.speed * dt, G.py - 20);
+    b.wx = Math.sin(b.wob * 0.7) * 0.55;
+    if (Math.random() < dt * (0.9 + S.stage * 0.15)) {
+      // boss summons minions
+      const m = pick(G.cfg.pool);
+      G.enemies.push({ wx: b.wx + rnd(-0.3, 0.3), y: b.y + 20, type: 'runner', r: 15, speed: G.cfg.speed * 1.5, mask: m, flash: 0, wob: 0, hp: 1, dead: false });
+    }
+    if (b.y >= G.py - 20) { hurt(99); }
+  }
+
+  // gates
+  for (const g of G.gates) {
+    g.y += 75 * dt * (0.6 + persp(g.y) * 0.9);
+    if (!g.used && g.y >= G.py - 6) {
+      g.used = true;
+      const side = G.px < 0 ? 0 : 1;
+      const opt = g.opts[side];
+      opt.apply();
+      addText(sx(side ? 0.5 : -0.5, G.py), G.py - 60, opt.icon + ' ' + opt.label, opt.bad ? '#ff6b6b' : '#7dffa0', 22, 1.2);
+      beep(opt.bad ? 180 : 880, .18, 'triangle', .06, opt.bad ? -80 : 400);
+      g.pickSide = side; g.fade = 0.4;
+    }
+    if (g.used) g.fade -= dt;
+  }
+  G.gates = G.gates.filter(g => !g.used || g.fade > 0);
+
+  // fx
+  for (const p of G.parts) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.92; p.vy *= 0.92; p.life -= dt; }
+  G.parts = G.parts.filter(p => p.life > 0);
+  for (const s of G.splats) { s.y += 120 * dt * persp(s.y); s.life -= dt; }
+  G.splats = G.splats.filter(s => s.life > 0 && s.y < H + 40);
+  for (const t of G.texts) { t.y -= 30 * dt; t.life -= dt; }
+  G.texts = G.texts.filter(t => t.life > 0);
+  if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
+  if (G.shake > 0) G.shake -= dt;
+}
+
+function hurt(n) {
+  S.hp -= n; G.shake = 0.35; G.combo = 0;
+  beep(120, .25, 'sawtooth', .06, -60);
+  if (navigator.vibrate) navigator.vibrate(60);
+  if (S.hp <= 0) { S.hp = 0; gameOver(); }
+}
+
+// ---------- Rendering ----------
+function draw() {
+  ctx.save();
+  if (G && G.shake > 0) ctx.translate(rnd(-5, 5) * G.shake * 2, rnd(-5, 5) * G.shake * 2);
+
+  // sky / ground
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#2b2340'); sky.addColorStop(HORIZON / H - 0.002, '#5a3f73'); sky.addColorStop(HORIZON / H, '#26303a'); sky.addColorStop(1, '#1b2128');
+  ctx.fillStyle = sky; ctx.fillRect(-20, -20, W + 40, H + 40);
+
+  // road
+  ctx.fillStyle = '#4a4f57';
+  ctx.beginPath();
+  ctx.moveTo(sx(-1, HORIZON), HORIZON); ctx.lineTo(sx(1, HORIZON), HORIZON);
+  ctx.lineTo(sx(1, H), H); ctx.lineTo(sx(-1, H), H); ctx.closePath(); ctx.fill();
+  // rails
+  for (const side of [-1, 1]) {
+    ctx.strokeStyle = side < 0 ? '#ff7ab6' : '#5fd3ff'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.moveTo(sx(side * 1.02, HORIZON), HORIZON); ctx.lineTo(sx(side * 1.02, H), H); ctx.stroke();
+  }
+  // lane dashes
+  if (G) {
+    ctx.fillStyle = 'rgba(255,255,255,.35)';
+    for (let y = HORIZON + G.roadOff; y < H; y += 60) {
+      const p = persp(y);
+      ctx.fillRect(W / 2 - 2 * p, y, 4 * p, 26 * p);
+    }
+  }
+
+  if (!G) { ctx.restore(); return; }
+
+  // splats
+  for (const s of G.splats) {
+    ctx.globalAlpha = Math.min(1, s.life / 2) * 0.55;
+    ctx.fillStyle = s.hex;
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const a = s.rot + i / 9 * Math.PI * 2, rr = s.r * (i % 2 ? 0.65 : 1);
+      ctx.lineTo(s.x + Math.cos(a) * rr, s.y + Math.sin(a) * rr * 0.55);
+    }
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // gates
+  for (const g of G.gates) drawGate(g);
+
+  // enemies sorted by y (far first)
+  const ents = [...G.enemies];
+  if (G.boss) ents.push(G.boss);
+  ents.sort((a, b) => a.y - b.y);
+  for (const e of ents) e === G.boss ? drawBoss(e) : drawEnemy(e);
+
+  // bullets
+  for (const bl of G.bullets) {
+    const hex = bl.c === THINNER ? '#cfe8f5' : COLOR[bl.c].hex;
+    ctx.fillStyle = hex; ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(bl.x, bl.y, bl.r * persp(bl.y), 0, 7); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.7)';
+    ctx.beginPath(); ctx.arc(bl.x - bl.r * 0.3, bl.y - bl.r * 0.3, bl.r * 0.3, 0, 7); ctx.fill();
+  }
+
+  drawPlayer();
+
+  // particles
+  for (const p of G.parts) {
+    ctx.globalAlpha = Math.max(0, p.life * 1.5); ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // floating text
+  ctx.textAlign = 'center';
+  for (const t of G.texts) {
+    ctx.globalAlpha = Math.min(1, t.life / t.max * 2);
+    ctx.font = `900 ${t.size}px system-ui, sans-serif`;
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.7)';
+    ctx.strokeText(t.s, t.x, t.y); ctx.fillStyle = t.col; ctx.fillText(t.s, t.x, t.y);
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+  drawHUD();
+}
+
+function blob(x, y, r, hex, wob) {
+  ctx.fillStyle = hex;
+  ctx.beginPath();
+  for (let i = 0; i <= 14; i++) {
+    const a = i / 14 * Math.PI * 2;
+    const rr = r * (1 + Math.sin(a * 3 + wob) * 0.06);
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.fill();
+}
+
+function drawEnemy(e) {
+  const p = persp(e.y), x = sx(e.wx, e.y), r = e.r * p, y = e.y + Math.abs(Math.sin(e.wob)) * -3 * p;
+  const target = G.cfg.target;
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,.3)';
+  ctx.beginPath(); ctx.ellipse(x, e.y + r * 0.9, r * 0.9, r * 0.3, 0, 0, 7); ctx.fill();
+  // legs
+  ctx.strokeStyle = '#222'; ctx.lineWidth = 3 * p;
+  const lg = Math.sin(e.wob) * 4 * p;
+  ctx.beginPath(); ctx.moveTo(x - r * 0.4, y + r * 0.6); ctx.lineTo(x - r * 0.4 + lg, y + r * 1.05);
+  ctx.moveTo(x + r * 0.4, y + r * 0.6); ctx.lineTo(x + r * 0.4 - lg, y + r * 1.05); ctx.stroke();
+  // body
+  blob(x, y, r, e.flash > 0 ? '#fff' : COLOR[e.mask].hex, e.wob);
+  ctx.lineWidth = 2.5 * p; ctx.strokeStyle = contaminated(e.mask) ? '#3a2415' : 'rgba(0,0,0,.55)'; ctx.stroke();
+  if (e.type === 'tank') { ctx.lineWidth = 4 * p; ctx.strokeStyle = '#999'; ctx.beginPath(); ctx.arc(x, y, r + 3 * p, 0, 7); ctx.stroke(); }
+  // eyes
+  const angry = contaminated(e.mask);
+  ctx.fillStyle = '#fff';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * r * 0.33, y - r * 0.15, r * 0.24, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#111';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * r * 0.33, y - r * 0.08, r * 0.12, 0, 7); ctx.fill(); }
+  if (angry) {
+    ctx.strokeStyle = '#111'; ctx.lineWidth = 2 * p;
+    ctx.beginPath(); ctx.moveTo(x - r * 0.55, y - r * 0.5); ctx.lineTo(x - r * 0.12, y - r * 0.32);
+    ctx.moveTo(x + r * 0.55, y - r * 0.5); ctx.lineTo(x + r * 0.12, y - r * 0.32); ctx.stroke();
+  }
+  // needed-colour hint above head
+  drawNeed(x, y - r - 8 * p, e.mask, p);
+}
+
+function drawNeed(x, y, mask, p) {
+  const target = G.cfg.target;
+  if (contaminated(mask)) {
+    ctx.font = `${Math.round(14 * p)}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText('🧴', x, y + 4 * p);
+    return;
+  }
+  const need = PRIMS.filter(c => (target & c) && !(mask & c));
+  const d = 9 * p;
+  need.forEach((c, i) => {
+    const dx = (i - (need.length - 1) / 2) * (d * 1.25);
+    ctx.fillStyle = COLOR[c].hex; ctx.strokeStyle = '#000'; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.arc(x + dx, y, d * 0.5, 0, 7); ctx.fill(); ctx.stroke();
+  });
+}
+
+function drawBoss(b) {
+  const p = persp(b.y), x = sx(b.wx, b.y), r = b.r * p;
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(x, b.y + r * 0.9, r, r * 0.3, 0, 0, 7); ctx.fill();
+  blob(x, b.y, r, b.flash > 0 ? '#fff' : COLOR[b.mask].hex, b.wob * 4);
+  ctx.lineWidth = 4; ctx.strokeStyle = '#111'; ctx.stroke();
+  // crown
+  ctx.fillStyle = '#ffd23f'; ctx.beginPath();
+  ctx.moveTo(x - r * 0.5, b.y - r * 0.8); ctx.lineTo(x - r * 0.3, b.y - r * 1.2); ctx.lineTo(x, b.y - r * 0.9);
+  ctx.lineTo(x + r * 0.3, b.y - r * 1.2); ctx.lineTo(x + r * 0.5, b.y - r * 0.8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // face
+  ctx.fillStyle = '#fff';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * r * 0.32, b.y - r * 0.1, r * 0.2, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#c00';
+  for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(x + s * r * 0.32, b.y - r * 0.05, r * 0.1, 0, 7); ctx.fill(); }
+  ctx.fillStyle = '#111'; ctx.fillRect(x - r * 0.35, b.y + r * 0.3, r * 0.7, r * 0.12);
+  // hp bar
+  const bw = r * 2;
+  ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(x - bw / 2, b.y - r * 1.55, bw, 9);
+  ctx.fillStyle = '#ff4d4d'; ctx.fillRect(x - bw / 2 + 1, b.y - r * 1.55 + 1, (bw - 2) * b.hp / b.maxHp, 7);
+  drawNeed(x, b.y + r + 14, b.mask, 1.4);
+}
+
+function drawGate(g) {
+  const p = persp(g.y), h = 34 * p;
+  const alpha = g.used ? Math.max(0, g.fade / 0.4) : 1;
+  ctx.globalAlpha = alpha * 0.92;
+  for (let side = 0; side < 2; side++) {
+    const opt = g.opts[side];
+    const xl = sx(side ? 0.02 : -1, g.y), xr = sx(side ? 1 : -0.02, g.y);
+    ctx.fillStyle = opt.bad ? 'rgba(230,60,70,.55)' : 'rgba(60,170,255,.55)';
+    if (g.used && g.pickSide === side) ctx.fillStyle = 'rgba(255,255,255,.8)';
+    ctx.fillRect(xl, g.y - h, xr - xl, h);
+    ctx.strokeStyle = opt.bad ? '#ff8a8a' : '#a6dcff'; ctx.lineWidth = 2; ctx.strokeRect(xl, g.y - h, xr - xl, h);
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'center';
+    ctx.font = `900 ${Math.round(15 * p)}px system-ui, sans-serif`;
+    ctx.fillText(opt.icon + ' ' + opt.label, (xl + xr) / 2, g.y - h / 2 + 5 * p);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawPlayer() {
+  const x = sx(G.px, G.py), y = G.py;
+  ctx.fillStyle = 'rgba(0,0,0,.35)';
+  ctx.beginPath(); ctx.ellipse(x, y + 22, 24, 8, 0, 0, 7); ctx.fill();
+  // body
+  ctx.fillStyle = '#2d2d38'; ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x - 15, y - 8, 30, 30, 8); ctx.fill(); ctx.stroke();
+  // head
+  ctx.fillStyle = '#f2c9a0'; ctx.beginPath(); ctx.arc(x, y - 16, 11, 0, 7); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(x, y - 20, 11, Math.PI, 0); ctx.fill(); ctx.stroke();
+  // paint tank on back shows current colour
+  const hex = S.paint === THINNER ? '#cfe8f5' : COLOR[S.paint].hex;
+  ctx.fillStyle = hex; ctx.beginPath(); ctx.roundRect(x - 22, y - 4, 9, 22, 4); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(x + 13, y - 4, 9, 22, 4); ctx.fill(); ctx.stroke();
+  // gun
+  const w = S.weapon;
+  ctx.fillStyle = '#666';
+  const gl = w === 'bazooka' ? 28 : w === 'gatling' ? 24 : 18, gw = w === 'bazooka' ? 10 : 6;
+  ctx.fillRect(x - gw / 2, y - 28 - gl + 12, gw, gl);
+  ctx.fillStyle = hex; ctx.fillRect(x - gw / 2, y - 28 - gl + 12, gw, 5);
+}
+
+function drawHUD() {
+  if (!G) return;
+  const target = G.cfg.target;
+  // top panel
+  ctx.fillStyle = 'rgba(15,14,22,.78)';
+  ctx.beginPath(); ctx.roundRect(8, 8, W - 16, 64, 14); ctx.fill();
+  // target swatch
+  ctx.fillStyle = COLOR[target].hex; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(16, 16, 48, 48, 12); ctx.fill(); ctx.stroke();
+  ctx.textAlign = 'left'; ctx.fillStyle = '#a9a4b8'; ctx.font = '700 12px system-ui, sans-serif';
+  ctx.fillText(`STAGE ${S.stage + 1} · 목표 색`, 74, 30);
+  ctx.fillStyle = '#fff'; ctx.font = '900 20px system-ui, sans-serif';
+  ctx.fillText(COLOR[target].name, 74, 54);
+  const nameW = ctx.measureText(COLOR[target].name).width;
+  ctx.font = '600 12px system-ui, sans-serif'; ctx.fillStyle = '#cfc9dc';
+  ctx.fillText('= ' + mixName(target), 74 + nameW + 8, 53);
+  // score + hp
+  ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = '900 18px system-ui, sans-serif';
+  ctx.fillText(S.score.toLocaleString(), W - 18, 32);
+  ctx.font = '14px system-ui';
+  ctx.fillText('❤'.repeat(S.hp) + '♡'.repeat(Math.max(0, S.maxHp - S.hp)), W - 18, 56);
+  // progress bar
+  ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(16, 78, W - 32, 6);
+  ctx.fillStyle = G.bossSpawned ? '#ff4d4d' : '#7dffa0'; ctx.fillRect(16, 78, (W - 32) * Math.min(1, G.dist), 6);
+  ctx.fillText('', 0, 0);
+  // weapon info
+  ctx.textAlign = 'left'; ctx.font = '700 12px system-ui, sans-serif'; ctx.fillStyle = '#cfc9dc';
+  const wi = `${WEAPONS[S.weapon].name}  ·  탄 ${1 + S.extra}줄  ·  연사 x${S.rateMul.toFixed(2)}  ·  폭발 x${S.splashMul.toFixed(1)}`;
+  ctx.fillText(wi, 16, 100);
+  if (G.combo >= 3) { ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.fillText(G.combo + ' COMBO', W - 16, 100); }
+
+  // intro banner
+  if (G.intro > 0) {
+    const a = Math.min(1, G.intro);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(0, H * 0.33, W, 150);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '800 18px system-ui, sans-serif';
+    ctx.fillText(`STAGE ${S.stage + 1}`, W / 2, H * 0.33 + 34);
+    ctx.fillStyle = COLOR[target].hex; ctx.font = '900 40px system-ui, sans-serif';
+    ctx.lineWidth = 5; ctx.strokeStyle = '#000';
+    ctx.strokeText(`목표: ${COLOR[target].name}`, W / 2, H * 0.33 + 84); ctx.fillText(`목표: ${COLOR[target].name}`, W / 2, H * 0.33 + 84);
+    ctx.fillStyle = '#ddd'; ctx.font = '700 16px system-ui, sans-serif';
+    ctx.fillText(mixName(target) + ' 을(를) 섞어 칠하세요!', W / 2, H * 0.33 + 120);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ---------- Screens ----------
+const startScreen = document.getElementById('startScreen');
+const msgScreen = document.getElementById('msgScreen');
+const msgTitle = document.getElementById('msgTitle'), msgBody = document.getElementById('msgBody'), msgBtn = document.getElementById('msgBtn');
+let msgAction = null;
+msgBtn.addEventListener('click', () => { msgScreen.classList.add('hidden'); msgAction && msgAction(); });
+
+const dot = m => `<span class="dot" style="background:${COLOR[m].hex}"></span>`;
+document.getElementById('mixChart').innerHTML = [[R, Y], [Y, B], [R, B]].map(([a, b]) =>
+  `<div>${dot(a)}+${dot(b)} = ${dot(a | b)} ${COLOR[a | b].name}</div>`).join('');
+
+document.getElementById('startBtn').addEventListener('click', () => {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  startScreen.classList.add('hidden');
+  newRun(); newStage();
+  controls.classList.remove('hidden');
+});
+
+function stageClear() {
+  G.cleared = true;
+  const bonus = S.hp * 50;
+  S.score += bonus;
+  const nextCfg = stageCfg(S.stage + 1);
+  msgTitle.textContent = `STAGE ${S.stage + 1} 클리어! 🎉`;
+  msgBody.innerHTML = `<p>체력 보너스 +${bonus}</p><div class="big">${S.score.toLocaleString()}</div>
+    <p>다음 목표: ${dot(nextCfg.target)} <b style="color:#fff">${COLOR[nextCfg.target].name}</b> (${mixName(nextCfg.target)})</p>`;
+  msgBtn.textContent = '다음 스테이지';
+  msgAction = () => { S.stage++; S.hp = Math.min(S.maxHp, S.hp + 1); newStage(); };
+  msgScreen.classList.remove('hidden');
+  beep(523, .15, 'triangle', .06); setTimeout(() => beep(659, .15, 'triangle', .06), 150); setTimeout(() => beep(784, .3, 'triangle', .06), 300);
+}
+function gameOver() {
+  G.over = true;
+  let best = 0;
+  try { best = +localStorage.getItem('pbr_best') || 0; if (S.score > best) { best = S.score; localStorage.setItem('pbr_best', best); } } catch (e) {}
+  msgTitle.textContent = '게임 오버';
+  msgBody.innerHTML = `<p>STAGE ${S.stage + 1} 까지 도달</p><div class="big">${S.score.toLocaleString()}</div><p>최고 기록 ${best.toLocaleString()}</p>`;
+  msgBtn.textContent = '다시 하기';
+  msgAction = () => { newRun(); newStage(); };
+  msgScreen.classList.remove('hidden');
+}
+
+// ---------- Loop ----------
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (G) update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// test hook
+window.__pbr = { get S() { return S; }, get G() { return G; } };
+})();
+</script>
+</body>
+</html>
