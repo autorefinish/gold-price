@@ -42,6 +42,9 @@
   .mix div { background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px 2px; }
   .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(0,0,0,.4); }
   .hidden { display: none !important; }
+  .mute { position: absolute; bottom: 84px; right: 10px; width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
+    background: rgba(12,10,24,.75); font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .mute:focus-visible { outline: 3px solid #ffd23f; }
   .hero { position: relative; height: 150px; margin: -6px 0 6px; }
   .hero img { position: absolute; bottom: 0; }
   .h-boss { height: 140px; left: 50%; transform: translateX(-20%); filter: drop-shadow(0 6px 10px rgba(0,0,0,.5)); }
@@ -57,6 +60,7 @@
   <div id="game">
     <canvas id="cv"></canvas>
     <div id="controls" class="hidden"></div>
+    <button id="muteBtn" class="mute hidden" aria-label="소리 켜기/끄기">🔊</button>
 
     <div id="startScreen" class="overlay">
       <div class="card">
@@ -207,7 +211,70 @@ function beep(freq, dur, type = 'square', vol = 0.04, slide = 0) {
   o.type = type; o.frequency.setValueAtTime(freq, t);
   if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, freq + slide), t + dur);
   g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur);
+  o.connect(g).connect(sfxBus || actx.destination); o.start(t); o.stop(t + dur);
+}
+
+// ---------- Sampled audio (music + effects generated with Higgsfield) ----------
+let sfxBus = null, musicBus = null, muted = false;
+try { muted = localStorage.getItem('pbr_muted') === '1'; } catch (e) {}
+const SFX_FILES = ['shoot', 'splat', 'pop', 'boss_hit', 'powerup', 'hurt', 'clang', 'ink', 'laser', 'roar', 'reflect', 'clear', 'over'];
+const MUSIC_FILES = ['bgm_stage', 'bgm_boss'];
+const BUF = {};
+const lastPlay = {};
+// minimum gap between repeats so rapid fire stays punchy instead of a wall of noise
+const SFX_GAP = { shoot: 0.07, laser: 0.09, splat: 0.05, pop: 0.04, clang: 0.06, reflect: 0.08, powerup: 0.1 };
+function initAudio() {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  if (actx.state === 'suspended') actx.resume();
+  if (sfxBus) return;
+  const master = actx.createGain(); master.connect(actx.destination);
+  sfxBus = actx.createGain(); sfxBus.gain.value = 0.9; sfxBus.connect(master);
+  musicBus = actx.createGain(); musicBus.gain.value = 0.45; musicBus.connect(master);
+  audioMaster = master; master.gain.value = muted ? 0 : 1;
+  for (const n of [...SFX_FILES, ...MUSIC_FILES]) {
+    fetch('assets/audio/' + n + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(b => actx.decodeAudioData(b)).then(buf => { BUF[n] = buf; if (n === pendingMusic) playMusic(n); })
+      .catch(() => {});
+  }
+}
+let audioMaster = null;
+function sfx(name, vol = 0.6, fallback) {
+  if (!actx || !sfxBus) return;
+  const buf = BUF[name];
+  if (!buf) { if (fallback) fallback(); return; }
+  const now = actx.currentTime;
+  if (now - (lastPlay[name] || -1) < (SFX_GAP[name] || 0)) return;
+  lastPlay[name] = now;
+  const src = actx.createBufferSource(), g = actx.createGain();
+  src.buffer = buf; src.playbackRate.value = 0.94 + Math.random() * 0.12;   // slight pitch variety
+  g.gain.value = vol; src.connect(g).connect(sfxBus); src.start();
+}
+let musicSrc = null, musicGain = null, currentMusic = null, pendingMusic = null;
+function playMusic(name) {
+  if (!actx || !musicBus) return;
+  if (currentMusic === name && musicSrc) return;
+  pendingMusic = name;
+  const buf = BUF[name]; if (!buf) return;
+  stopMusic(0.6);
+  const src = actx.createBufferSource(), g = actx.createGain();
+  src.buffer = buf; src.loop = true;
+  g.gain.setValueAtTime(0.0001, actx.currentTime); g.gain.exponentialRampToValueAtTime(1, actx.currentTime + 0.8);
+  src.connect(g).connect(musicBus); src.start();
+  musicSrc = src; musicGain = g; currentMusic = name;
+}
+function stopMusic(fade = 0.4) {
+  pendingMusic = null;
+  if (!musicSrc) return;
+  const src = musicSrc, g = musicGain, t = actx.currentTime;
+  g.gain.cancelScheduledValues(t); g.gain.setValueAtTime(g.gain.value, t); g.gain.linearRampToValueAtTime(0, t + fade);
+  src.stop(t + fade + 0.05);
+  musicSrc = null; currentMusic = null;
+}
+function setMuted(m) {
+  muted = m;
+  try { localStorage.setItem('pbr_muted', m ? '1' : '0'); } catch (e) {}
+  if (audioMaster) audioMaster.gain.value = m ? 0 : 1;
+  const b = document.getElementById('muteBtn'); if (b) b.textContent = m ? '🔇' : '🔊';
 }
 
 // ---------- Weapons ----------
@@ -248,6 +315,7 @@ function newRun() {
 }
 let G; // per-stage
 function newStage() {
+  playMusic('bgm_stage');
   const cfg = stageCfg(S.stage);
   G = {
     cfg, t: 0, dist: 0, spawnT: 1.2, gateT: 6, fireT: 0,
@@ -419,7 +487,7 @@ function spawnBoss() {
   };
   G.bossBanner = 3.2;
   addText(W / 2, H * 0.32, '⚠ ' + B.name + ' 등장!', '#ff5a5a', 28, 1.6, true);
-  beep(110, .6, 'sawtooth', .05, -50);
+  sfx('roar', .9, () => beep(110, .6, 'sawtooth', .05, -50)); playMusic('bgm_boss');
 }
 function bossMasks() {
   const opts = [0, ...PRIMS.filter(p => p !== G.cfg.target)];
@@ -452,7 +520,7 @@ function paintEnemy(e, c, isBoss) {
     const p = persp(e.y), x = sx(e.wx, e.y);
     ring(x, e.y - e.r * p * 0.6, '#d9dde6', e.r * p * 1.8, 0.2, 5);
     for (let i = 0; i < 6; i++) { const a = rnd(-2.6, -0.5); G.parts.push({ x, y: e.y - e.r * p * 0.6, vx: Math.cos(a) * 260, vy: Math.sin(a) * 260, life: .3, r: 2.5, col: '#fff6c2', grav: 600 }); }
-    beep(1400, .05, 'square', .03, -600);
+    sfx('clang', .5, () => beep(1400, .05, 'square', .03, -600));
     if (e.shield === 0) { addText(x, e.y - e.r * p * 2.6, '방패 파괴!', '#d9dde6', 18, .9, true); burst(x, e.y - e.r * p * 0.5, '#8a909c', 16, 260); beep(300, .2, 'sawtooth', .06, -200); G.shake = Math.max(G.shake, .12); }
     return;
   }
@@ -462,6 +530,7 @@ function paintEnemy(e, c, isBoss) {
   const hx = sx(e.wx, e.y), hp = persp(e.y);
   ring(hx, e.y - e.r * hp, c === THINNER ? '#cfe8f5' : COLOR[c].hex, e.r * hp * 1.6, 0.22, 4);
   if (before !== e.mask) { e.colorPop = 0.25; }
+  sfx('splat', .5);
   if (e.mask === G.cfg.target) {
     if (isBoss) return bossHit(e);
     e.hp--;
@@ -499,7 +568,7 @@ function killEnemy(e) {
   splat(x, e.y, COLOR[G.cfg.target].hex, e.r * persp(e.y) * 1.8);
   addText(x, e.y - e.r * p * 2.4, '+' + pts, '#fff', 20 + Math.min(10, G.combo), .8, true);
   if (G.combo > 0 && G.combo % 10 === 0) addText(W / 2, H * 0.45, G.combo + ' 콤보!', '#ffd23f', 28, 1);
-  beep(660 + Math.random() * 200, .09, 'triangle', .05, 300); beep(70, .14, 'sine', .12, -30);
+  sfx('pop', .75, () => beep(660 + Math.random() * 200, .09, 'triangle', .05, 300)); beep(70, .14, 'sine', .1, -30);
 }
 function bossHit(b) {
   if (b.hitCd > 0) return;
@@ -509,7 +578,7 @@ function bossHit(b) {
   const x = sx(b.wx, b.y);
   burst(x, b.y, COLOR[G.cfg.target].hex, 30, 280);
   addText(x, b.y - 90, '명중! +100', '#ffd23f', 30, 1, true);
-  beep(220, .25, 'square', .06, -100);
+  sfx('boss_hit', .9, () => beep(220, .25, 'square', .06, -100));
   if (b.hp <= 0) { stageClear(); return; }
   // boss changes colour: sometimes a contaminating one
   b.mask = pick(bossMasks());
@@ -536,7 +605,9 @@ function fire() {
     }
   }
   if (S.paint === THINNER) { S.thinner--; refreshControls(); if (S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); } }
-  beep(WEAPON_SFX[S.weapon], S.weapon === 'laser' ? .08 : .04, S.weapon === 'laser' ? 'sawtooth' : 'square', .015, S.weapon === 'laser' ? -1200 : -200);
+  const fb = () => beep(WEAPON_SFX[S.weapon], S.weapon === 'laser' ? .08 : .04, S.weapon === 'laser' ? 'sawtooth' : 'square', .015, S.weapon === 'laser' ? -1200 : -200);
+  if (S.weapon === 'laser') sfx('laser', .3, fb);
+  else sfx('shoot', S.weapon === 'gatling' ? .22 : S.weapon === 'bazooka' || S.weapon === 'roller' ? .6 : .35, fb);
 }
 function targets() { return G.boss ? [...G.enemies, G.boss] : G.enemies; }
 function touching(bl, e, extra = 0) {
@@ -635,7 +706,7 @@ function update(dt) {
     let popped = false;
     for (const k of G.inks) {
       if (!k.dead && Math.hypot(k.x - bl.x, k.y - bl.y) < k.r + bl.r + 4) {
-        k.dead = true; popped = true; burst(k.x, k.y, '#3a1f5c', 14, 200); ring(k.x, k.y, '#b98cff', 30, .25, 4); beep(500, .06, 'triangle', .04, 300);
+        k.dead = true; popped = true; burst(k.x, k.y, '#3a1f5c', 14, 200); ring(k.x, k.y, '#b98cff', 30, .25, 4); sfx('ink', .5, () => beep(500, .06, 'triangle', .04, 300));
         S.score += 5; addText(k.x, k.y - 16, '+5', '#d7c2ff', 14, .5);
         break;
       }
@@ -648,7 +719,7 @@ function update(dt) {
     if (hit === G.boss && G.boss.mirrorUp) {
       // reflected: bullet bounces back harmlessly
       bl.vy = Math.abs(bl.vy) * 0.8; bl.vx = rnd(-260, 260); bl.reflected = true;
-      ring(bl.x, bl.y, '#e6f7ff', 22, .2, 3); beep(2200, .03, 'sine', .02, 0);
+      ring(bl.x, bl.y, '#e6f7ff', 22, .2, 3); sfx('reflect', .45, () => beep(2200, .03, 'sine', .02, 0));
       continue;
     }
     if (bl.kind === 'pierce') { explode(bl, hit); continue; }   // laser keeps going
@@ -739,7 +810,7 @@ function update(dt) {
       k.dead = true;
       if (Math.abs(k.x - sx(G.px, G.py)) < 34) {
         G.inkT = 3.2; G.inkBlobs = Array.from({ length: 6 }, () => ({ x: rnd(40, W - 40), y: rnd(150, H - 200), r: rnd(55, 95), rot: Math.random() * 6 }));
-        addText(sx(G.px, G.py), G.py - 120, '먹물!', '#b98cff', 26, 1, true); beep(90, .3, 'sawtooth', .06, -40); G.combo = 0;
+        addText(sx(G.px, G.py), G.py - 120, '먹물!', '#b98cff', 26, 1, true); sfx('ink', .9, () => beep(90, .3, 'sawtooth', .06, -40)); G.combo = 0;
       }
       splat(k.x, k.y + 40, '#2a1640', 26);
     }
@@ -757,7 +828,7 @@ function update(dt) {
       const opt = g.opts[side];
       opt.apply();
       addText(sx(side ? 0.5 : -0.5, G.py), G.py - 60, opt.icon + ' ' + opt.label, opt.bad ? '#ff6b6b' : '#7dffa0', 22, 1.2);
-      beep(opt.bad ? 180 : 880, .18, 'triangle', .06, opt.bad ? -80 : 400);
+      if (opt.bad) beep(180, .25, 'triangle', .06, -80); else sfx('powerup', .7, () => beep(880, .18, 'triangle', .06, 400));
       g.pickSide = side; g.fade = 0.4;
     }
     if (g.used) g.fade -= dt;
@@ -784,7 +855,7 @@ function update(dt) {
 
 function hurt(n) {
   S.hp -= n; G.shake = 0.35; G.combo = 0;
-  beep(120, .25, 'sawtooth', .06, -60);
+  sfx('hurt', .8, () => beep(120, .25, 'sawtooth', .06, -60));
   if (navigator.vibrate) navigator.vibrate(60);
   if (S.hp <= 0) { S.hp = 0; gameOver(); }
 }
@@ -1250,11 +1321,12 @@ document.getElementById('mixChart').innerHTML = [[R, Y], [Y, B], [R, B]].map(([a
   `<div>${dot(a)}+${dot(b)} = ${dot(a | b)} ${COLOR[a | b].name}</div>`).join('');
 
 document.getElementById('startBtn').addEventListener('click', async () => {
-  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  initAudio();
   startScreen.classList.add('hidden');
   await assetsReady;
   newRun(); newStage();
   controls.classList.remove('hidden');
+  document.getElementById('muteBtn').classList.remove('hidden');
 });
 
 function stageClear() {
@@ -1268,10 +1340,12 @@ function stageClear() {
   msgBtn.textContent = '다음 스테이지';
   msgAction = () => { S.stage++; S.hp = Math.min(S.maxHp, S.hp + 1); newStage(); };
   msgScreen.classList.remove('hidden');
-  beep(523, .15, 'triangle', .06); setTimeout(() => beep(659, .15, 'triangle', .06), 150); setTimeout(() => beep(784, .3, 'triangle', .06), 300);
+  stopMusic(0.3);
+  sfx('clear', .9, () => { beep(523, .15, 'triangle', .06); setTimeout(() => beep(659, .15, 'triangle', .06), 150); setTimeout(() => beep(784, .3, 'triangle', .06), 300); });
 }
 function gameOver() {
   G.over = true;
+  stopMusic(0.3); sfx('over', .9);
   let best = 0;
   try { best = +localStorage.getItem('pbr_best') || 0; if (S.score > best) { best = S.score; localStorage.setItem('pbr_best', best); } } catch (e) {}
   msgTitle.textContent = '게임 오버';
@@ -1291,8 +1365,11 @@ function loop(now) {
 }
 requestAnimationFrame(loop);
 
+document.getElementById('muteBtn').addEventListener('click', e => { e.stopPropagation(); initAudio(); setMuted(!muted); });
+setMuted(muted);
+
 // test hook
-window.__pbr = { get S() { return S; }, get G() { return G; }, makeEnemy: (...a) => makeEnemy(...a), newStage: () => newStage(), spawnBoss: () => spawnBoss() };
+window.__pbr = { get S() { return S; }, get G() { return G; }, makeEnemy: (...a) => makeEnemy(...a), newStage: () => newStage(), spawnBoss: () => spawnBoss(), audio: () => ({ loaded: Object.keys(BUF), music: currentMusic, state: actx && actx.state }) };
 })();
 </script>
 </body>
