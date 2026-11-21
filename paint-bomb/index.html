@@ -42,6 +42,46 @@
   .mix div { background: rgba(255,255,255,.06); border-radius: 8px; padding: 6px 2px; }
   .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; border: 1px solid rgba(0,0,0,.4); }
   .hidden { display: none !important; }
+  .coin { display: inline-block; width: 14px; height: 14px; border-radius: 50%; vertical-align: -2px;
+    background: radial-gradient(circle at 35% 35%, #fff6c2, #ffcf33 50%, #c98a00); border: 1px solid #8a5a00; }
+  .coinline { color: #ffe58a !important; }
+  .card.shop { max-width: 400px; padding: 16px 14px; display: flex; flex-direction: column; max-height: 94%; }
+  .shop-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .shop-head h2 { margin: 0; font-size: 20px; }
+  .wallet { display: flex; align-items: center; gap: 6px; background: rgba(255,207,51,.12); border: 1px solid rgba(255,207,51,.4);
+    border-radius: 999px; padding: 5px 12px; color: #ffe58a; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .tabs { display: flex; gap: 6px; margin: 12px 0 10px; }
+  .tab { flex: 1; padding: 9px; border-radius: 10px; border: 1px solid rgba(255,255,255,.15); background: rgba(255,255,255,.05);
+    color: #cfc9dc; font-weight: 800; font-size: 14px; cursor: pointer; }
+  .tab.sel { background: #ffd23f; color: #111; border-color: #ffd23f; }
+  .shop-list { overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 2px; min-height: 0; }
+  .shop-list.perks { grid-template-columns: 1fr; }
+  .item { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1); border-radius: 12px; padding: 8px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; min-width: 0; }
+  .item.equipped { border-color: #7dffa0; box-shadow: 0 0 0 1px #7dffa0 inset; }
+  .item img { width: 64px; height: 64px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.5)); }
+  .item.locked img { filter: grayscale(.8) brightness(.6); }
+  .item .nm { font-weight: 800; font-size: 13.5px; color: #fff; }
+  .item .lv { display: flex; gap: 3px; }
+  .item .lv i { width: 9px; height: 9px; border-radius: 2px; background: rgba(255,255,255,.15); }
+  .item .lv i.on { background: #ffd23f; }
+  .item .desc { font-size: 11.5px; color: #a9a4b8; line-height: 1.35; }
+  .item .row { display: flex; gap: 5px; width: 100%; }
+  .sbtn { flex: 1; border: 0; border-radius: 8px; padding: 7px 4px; font-weight: 800; font-size: 12.5px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px; background: #ffd23f; color: #111; }
+  .sbtn.alt { background: rgba(255,255,255,.12); color: #fff; }
+  .sbtn.ok { background: #2fb457; color: #fff; }
+  .sbtn:disabled { opacity: .4; cursor: default; }
+  .sbtn:focus-visible, .tab:focus-visible { outline: 3px solid #fff; }
+  .perk { flex-direction: row; text-align: left; padding: 10px; gap: 10px; }
+  .perk .ic { font-size: 26px; width: 40px; text-align: center; }
+  .perk .mid { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+  .perk .sbtn { flex: 0 0 92px; }
+  .shop-note { font-size: 13px; margin: 10px 0 0 !important; }
+  .shop-note b { color: #7dffa0; }
+  .shake-no { animation: no .25s; }
+  @keyframes no { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @media (prefers-reduced-motion: reduce) { .shake-no { animation: none; } }
   .mute { position: absolute; bottom: 84px; right: 10px; width: 38px; height: 38px; border-radius: 50%; border: 2px solid rgba(255,255,255,.3);
     background: rgba(12,10,24,.75); font-size: 17px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
   .mute:focus-visible { outline: 3px solid #ffd23f; }
@@ -76,6 +116,22 @@
           <li>도로 위 <b>게이트</b>를 골라 통과해 무기 강화</li>
         </ul>
         <button class="btn" id="startBtn">게임 시작</button>
+      </div>
+    </div>
+
+    <div id="shopScreen" class="overlay hidden">
+      <div class="card shop">
+        <div class="shop-head">
+          <h2>🛒 업그레이드 상점</h2>
+          <div class="wallet"><span class="coin"></span><b id="shopCoins">0</b></div>
+        </div>
+        <div class="tabs" role="tablist">
+          <button class="tab sel" id="tabWeapons" role="tab">무기</button>
+          <button class="tab" id="tabPerks" role="tab">능력</button>
+        </div>
+        <div class="shop-list" id="shopList"></div>
+        <p class="shop-note" id="shopNote">다음 스테이지는 <b id="equipName"></b>(으)로 시작해요</p>
+        <button class="btn" id="shopNext">다음 스테이지 ▶</button>
       </div>
     </div>
 
@@ -311,6 +367,8 @@ function newRun() {
     stage: 0, score: 0, hp: 5, maxHp: 5,
     weapon: 'pistol', extra: 0, rateMul: 1, splashMul: 1,
     thinner: 8, paint: R, seen: {},
+    coins: 0, equip: 'pistol', owned: { pistol: 1 },        // owned: weapon -> level (1..5)
+    perm: { hp: 0, thinner: 0, ammo: 0 },
   };
 }
 let G; // per-stage
@@ -320,14 +378,17 @@ function newStage() {
   G = {
     cfg, t: 0, dist: 0, spawnT: 1.2, gateT: 6, fireT: 0,
     px: 0, tx: 0, py: H - 150,
-    bullets: [], enemies: [], gates: [], parts: [], splats: [], texts: [], rings: [], corpses: [], inks: [], inkT: 0, inkBlobs: [], bossBanner: 0, hitstop: 0, flashT: 0,
+    bullets: [], enemies: [], gates: [], parts: [], splats: [], texts: [], rings: [], corpses: [], coinFx: [], inks: [], inkT: 0, inkBlobs: [], bossBanner: 0, hitstop: 0, flashT: 0,
     boss: null, bossSpawned: false, intro: 2.4, combo: 0, comboT: 0, shake: 0, over: false, cleared: false,
     roadOff: 0,
   };
   // the starting paint should be useful
   const firstPrim = PRIMS.find(p => cfg.target & p);
   S.paint = firstPrim;
-  S.thinner = Math.max(S.thinner, 6);
+  S.maxHp = 5 + S.perm.hp;
+  S.thinner = Math.max(S.thinner, 6 + S.perm.thinner * 3);
+  S.extra = Math.max(S.extra, S.perm.ammo);
+  S.weapon = S.equip;
   buildControls();
 }
 
@@ -496,6 +557,10 @@ function bossMasks() {
 }
 
 // ---------- Effects ----------
+function gainCoins(n, x, y) {
+  S.coins += n;
+  if (x !== undefined) G.coinFx.push({ x, y, n, t: 0 });
+}
 function addText(x, y, s, col, size = 18, life = 0.9, pop = false) { G.texts.push({ x, y, s, col, size, life, max: life, pop }); }
 function ring(x, y, col, r, life, w) { G.rings.push({ x, y, col, r, life, max: life, w }); }
 function burst(x, y, hex, n = 14, spd = 160) {
@@ -564,6 +629,7 @@ function killEnemy(e) {
   G.combo++; G.comboT = 1.6;
   const pts = TYPES[e.type].pts * Math.min(5, 1 + Math.floor(G.combo / 5));
   S.score += pts;
+  gainCoins(Math.max(1, Math.round(TYPES[e.type].pts / 5)), x, e.y - e.r * p * 3);
   burst(x, e.y, COLOR[G.cfg.target].hex, 18, 220);
   splat(x, e.y, COLOR[G.cfg.target].hex, e.r * persp(e.y) * 1.8);
   addText(x, e.y - e.r * p * 2.4, '+' + pts, '#fff', 20 + Math.min(10, G.combo), .8, true);
@@ -575,6 +641,7 @@ function bossHit(b) {
   b.hp--; b.hitCd = 0.5; G.shake = 0.45; G.hitstop = 0.12; G.flashT = 0.12; b.hitT = 0.3;
   ring(sx(b.wx, b.y), b.y - b.r * bossP(b.y), '#ffffff', b.r * bossP(b.y) * 3, 0.45, 10);
   S.score += 100;
+  gainCoins(5, sx(b.wx, b.y), b.y - 40);
   const x = sx(b.wx, b.y);
   burst(x, b.y, COLOR[G.cfg.target].hex, 30, 280);
   addText(x, b.y - 90, '명중! +100', '#ffd23f', 30, 1, true);
@@ -585,12 +652,14 @@ function bossHit(b) {
 }
 
 // ---------- Firing ----------
+function wLevel() { return S.owned[S.weapon] || 1; }
 function fire() {
   const w = WEAPONS[S.weapon];
   const isThin = S.paint === THINNER;
   if (isThin && S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); }
   const x0 = sx(G.px, G.py), y0 = G.py - 100;   // straight up from the character's centre
-  const base = { c: S.paint, r: w.r, splash: w.splash * S.splashMul, kind: w.kind || 'ball', hits: new Set(), bounces: w.bounces || 0, age: 0 };
+  const lvB = 1 + 0.12 * (wLevel() - 1);
+  const base = { c: S.paint, r: w.r, splash: w.splash * S.splashMul * lvB, kind: w.kind || 'ball', hits: new Set(), bounces: w.bounces || 0, age: 0 };
   if (w.kind === 'wave') {
     // one wide roller wave; extra ammo makes it wider instead of adding waves
     G.bullets.push({ ...base, x: x0, y: y0 + 10, vx: 0, vy: -w.speed, half: 62 * (1 + S.extra * 0.22), hits: new Set() });
@@ -667,7 +736,7 @@ function update(dt) {
 
   // fire
   G.fireT -= dt;
-  if (G.fireT <= 0) { fire(); G.fireT = 1 / (WEAPONS[S.weapon].rate * S.rateMul); }
+  if (G.fireT <= 0) { fire(); G.fireT = 1 / (WEAPONS[S.weapon].rate * S.rateMul * (1 + 0.12 * (wLevel() - 1))); }
 
   // bullets
   for (const bl of G.bullets) {
@@ -837,6 +906,8 @@ function update(dt) {
 
   // fx
   for (const p of G.parts) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.grav) { p.vy += p.grav * dt; p.vx *= 0.97; } else { p.vx *= 0.92; p.vy *= 0.92; } p.life -= dt; }
+  for (const c of G.coinFx) c.t += dt;
+  G.coinFx = G.coinFx.filter(c => c.t < 0.6);
   for (const r of G.rings) r.life -= dt;
   G.rings = G.rings.filter(r => r.life > 0);
   for (const c of G.corpses) {
@@ -969,6 +1040,11 @@ function draw() {
   drawPlayer();
 
   drawInks();
+  for (const c of G.coinFx) {
+    const k = Math.min(1, c.t / 0.6), e = k * k;
+    const cx = c.x + (W - 150 - c.x) * e, cy = c.y + (30 - c.y) * e - Math.sin(k * Math.PI) * 30;
+    drawCoin(cx, cy, 6);
+  }
 
   // impact rings
   for (const r of G.rings) {
@@ -1210,6 +1286,13 @@ function drawPlayer() {
   ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(x - 2, y - 102, 2, 0, 7); ctx.fill();
 }
 
+function drawCoin(x, y, r) {
+  const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 1, x, y, r);
+  g.addColorStop(0, '#fff6c2'); g.addColorStop(0.5, '#ffcf33'); g.addColorStop(1, '#c98a00');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
+  ctx.strokeStyle = '#8a5a00'; ctx.lineWidth = 1.2; ctx.stroke();
+  ctx.strokeStyle = 'rgba(138,90,0,.7)'; ctx.beginPath(); ctx.arc(x, y, r * 0.55, 0, 7); ctx.stroke();
+}
 function drawHUD() {
   if (!G) return;
   const target = G.cfg.target;
@@ -1240,6 +1323,10 @@ function drawHUD() {
   // score + hp
   ctx.textAlign = 'right'; ctx.fillStyle = '#ffd23f'; ctx.font = '900 22px system-ui, sans-serif';
   ctx.fillText(S.score.toLocaleString(), W - 20, 34);
+  const scW = ctx.measureText(S.score.toLocaleString()).width;
+  ctx.font = '900 15px system-ui, sans-serif'; ctx.fillStyle = '#ffe58a';
+  const cTxt = S.coins.toLocaleString(), cW = ctx.measureText(cTxt).width;
+  ctx.fillText(cTxt, W - 34 - scW, 32); drawCoin(W - 44 - scW - cW, 27, 7);
   for (let i = 0; i < S.maxHp; i++) {
     const hx = W - 26 - i * 19, hy = 50;
     ctx.fillStyle = i < S.hp ? '#ff3d5a' : 'rgba(255,255,255,.18)';
@@ -1333,12 +1420,15 @@ function stageClear() {
   G.cleared = true;
   const bonus = S.hp * 50;
   S.score += bonus;
+  const coinBonus = 30 + S.stage * 10 + S.hp * 5;
+  gainCoins(coinBonus);
   const nextCfg = stageCfg(S.stage + 1);
   msgTitle.textContent = `STAGE ${S.stage + 1} 클리어! 🎉`;
   msgBody.innerHTML = `<p>체력 보너스 +${bonus}</p><div class="big">${S.score.toLocaleString()}</div>
+    <p class="coinline"><span class="coin"></span> 클리어 보상 <b>+${coinBonus}</b> · 보유 <b>${S.coins}</b></p>
     <p>다음 목표: ${dot(nextCfg.target)} <b style="color:#fff">${COLOR[nextCfg.target].name}</b> (${mixName(nextCfg.target)})</p>`;
-  msgBtn.textContent = '다음 스테이지';
-  msgAction = () => { S.stage++; S.hp = Math.min(S.maxHp, S.hp + 1); newStage(); };
+  msgBtn.textContent = '🛒 상점 열기';
+  msgAction = openShop;
   msgScreen.classList.remove('hidden');
   stopMusic(0.3);
   sfx('clear', .9, () => { beep(523, .15, 'triangle', .06); setTimeout(() => beep(659, .15, 'triangle', .06), 150); setTimeout(() => beep(784, .3, 'triangle', .06), 300); });
@@ -1368,8 +1458,96 @@ requestAnimationFrame(loop);
 document.getElementById('muteBtn').addEventListener('click', e => { e.stopPropagation(); initAudio(); setMuted(!muted); });
 setMuted(muted);
 
+// ---------- Upgrade shop ----------
+const WEAPON_PRICE = { pistol: 0, shotgun: 60, gatling: 80, bazooka: 100, laser: 120, bounce: 120, homing: 140, roller: 150 };
+const WEAPON_DESC = {
+  pistol: '균형 잡힌 기본 무기', shotgun: '3갈래 확산', gatling: '아주 빠른 연사', bazooka: '큰 폭발 범위',
+  laser: '일렬로 관통', homing: '2발 자동 추적', bounce: '최대 3번 튕김', roller: '넓은 가로 물결',
+};
+const MAX_LV = 5;
+const upCost = lv => 40 * lv;
+const PERKS = [
+  { id: 'hp', icon: '❤️', name: '최대 체력 +1', desc: lv => `하트 ${5 + lv}개 → ${6 + lv}개`, max: 3, cost: lv => 80 * (lv + 1) },
+  { id: 'thinner', icon: '🧴', name: '시작 신너 +3', desc: lv => `스테이지 시작 신너 ${6 + lv * 3}개 → ${9 + lv * 3}개`, max: 3, cost: lv => 40 * (lv + 1) },
+  { id: 'ammo', icon: '🔫', name: '시작 탄 +1줄', desc: lv => `스테이지를 ${1 + lv}줄 → ${2 + lv}줄로 시작`, max: 2, cost: lv => 150 * (lv + 1) },
+  { id: 'heal', icon: '💊', name: '체력 모두 회복', desc: () => '다음 스테이지를 하트 가득 찬 상태로', max: 99, cost: () => 30, once: true },
+];
+const shopScreen = document.getElementById('shopScreen'), shopList = document.getElementById('shopList');
+let shopTab = 'weapons', healBought = false;
+function openShop() {
+  healBought = false;
+  S.hp = Math.min(S.maxHp, S.hp + 1);   // small free heal between stages, as before
+  renderShop();
+  shopScreen.classList.remove('hidden');
+}
+function spend(cost, el) {
+  if (S.coins < cost) { if (el) { el.classList.remove('shake-no'); void el.offsetWidth; el.classList.add('shake-no'); } beep(140, .12, 'sawtooth', .03); return false; }
+  S.coins -= cost; sfx('powerup', .7, () => beep(880, .18, 'triangle', .06, 400)); return true;
+}
+function lvBar(lv) { return '<div class="lv">' + Array.from({ length: MAX_LV }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('') + '</div>'; }
+function renderShop() {
+  document.getElementById('shopCoins').textContent = S.coins.toLocaleString();
+  document.getElementById('equipName').textContent = WEAPONS[S.equip].name;
+  document.getElementById('tabWeapons').classList.toggle('sel', shopTab === 'weapons');
+  document.getElementById('tabPerks').classList.toggle('sel', shopTab === 'perks');
+  shopList.classList.toggle('perks', shopTab === 'perks');
+  if (shopTab === 'weapons') {
+    shopList.innerHTML = Object.keys(WEAPONS).map(w => {
+      const lv = S.owned[w] || 0, eq = S.equip === w;
+      let btns;
+      if (!lv) btns = `<button class="sbtn" data-act="buy" data-w="${w}" ${S.coins < WEAPON_PRICE[w] ? 'disabled' : ''}><span class="coin"></span>${WEAPON_PRICE[w]} 구매</button>`;
+      else {
+        const up = lv < MAX_LV ? `<button class="sbtn" data-act="up" data-w="${w}" ${S.coins < upCost(lv) ? 'disabled' : ''}><span class="coin"></span>${upCost(lv)}</button>` : `<button class="sbtn alt" disabled>MAX</button>`;
+        const eqb = eq ? `<button class="sbtn ok" disabled>장착 중</button>` : `<button class="sbtn alt" data-act="eq" data-w="${w}">장착</button>`;
+        btns = eqb + up;
+      }
+      return `<div class="item ${eq ? 'equipped' : ''} ${lv ? '' : 'locked'}">
+        <img src="assets/w_${w}.webp" alt="">
+        <div class="nm">${WEAPONS[w].name}</div>
+        ${lv ? lvBar(lv) : '<div class="desc">미보유</div>'}
+        <div class="desc">${WEAPON_DESC[w]}${lv > 1 ? ` · 연사/범위 +${(lv - 1) * 12}%` : ''}</div>
+        <div class="row">${btns}</div>
+      </div>`;
+    }).join('');
+  } else {
+    shopList.innerHTML = PERKS.map(p => {
+      const lv = p.id === 'heal' ? 0 : S.perm[p.id];
+      const maxed = p.id === 'heal' ? (healBought || S.hp >= S.maxHp) : lv >= p.max;
+      const cost = p.cost(lv);
+      const label = p.id === 'heal' && S.hp >= S.maxHp ? '이미 가득' : maxed ? (p.id === 'heal' ? '완료' : 'MAX') : `<span class="coin"></span>${cost}`;
+      return `<div class="item perk">
+        <div class="ic">${p.icon}</div>
+        <div class="mid"><div class="nm">${p.name}</div><div class="desc">${maxed && p.id !== 'heal' ? '최대 단계' : p.desc(lv)}</div>
+        ${p.id !== 'heal' ? '<div class="lv">' + Array.from({ length: p.max }, (_, i) => `<i class="${i < lv ? 'on' : ''}"></i>`).join('') + '</div>' : ''}</div>
+        <button class="sbtn" data-act="perk" data-p="${p.id}" ${maxed || S.coins < cost ? 'disabled' : ''}>${label}</button>
+      </div>`;
+    }).join('');
+  }
+}
+shopList.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const w = b.dataset.w, act = b.dataset.act;
+  if (act === 'buy' && spend(WEAPON_PRICE[w], b)) { S.owned[w] = 1; S.equip = w; }
+  if (act === 'up' && spend(upCost(S.owned[w]), b)) S.owned[w]++;
+  if (act === 'eq') { S.equip = w; beep(660, .06, 'triangle', .04); }
+  if (act === 'perk') {
+    const p = PERKS.find(x => x.id === b.dataset.p), lv = p.id === 'heal' ? 0 : S.perm[p.id];
+    if (spend(p.cost(lv), b)) {
+      if (p.id === 'heal') { healBought = true; S.hp = S.maxHp; }
+      else { S.perm[p.id]++; if (p.id === 'hp') { S.maxHp++; S.hp++; } }
+    }
+  }
+  renderShop();
+});
+document.getElementById('tabWeapons').addEventListener('click', () => { shopTab = 'weapons'; renderShop(); });
+document.getElementById('tabPerks').addEventListener('click', () => { shopTab = 'perks'; renderShop(); });
+document.getElementById('shopNext').addEventListener('click', () => {
+  shopScreen.classList.add('hidden');
+  S.stage++; newStage();
+});
+
 // test hook
-window.__pbr = { get S() { return S; }, get G() { return G; }, makeEnemy: (...a) => makeEnemy(...a), newStage: () => newStage(), spawnBoss: () => spawnBoss(), audio: () => ({ loaded: Object.keys(BUF), music: currentMusic, state: actx && actx.state }) };
+window.__pbr = { get S() { return S; }, get G() { return G; }, makeEnemy: (...a) => makeEnemy(...a), newStage: () => newStage(), spawnBoss: () => spawnBoss(), stageClear: () => stageClear(), audio: () => ({ loaded: Object.keys(BUF), music: currentMusic, state: actx && actx.state }) };
 })();
 </script>
 </body>
