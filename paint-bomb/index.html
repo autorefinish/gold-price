@@ -504,11 +504,11 @@ function fire() {
   const w = WEAPONS[S.weapon];
   const isThin = S.paint === THINNER;
   if (isThin && S.thinner <= 0) { S.paint = PRIMS.find(p => G.cfg.target & p); refreshControls(); }
-  const x0 = sx(G.px, G.py) + 24, y0 = G.py - 78;
+  const x0 = sx(G.px, G.py), y0 = G.py - 100;   // straight up from the character's centre
   const base = { c: S.paint, r: w.r, splash: w.splash * S.splashMul, kind: w.kind || 'ball', hits: new Set(), bounces: w.bounces || 0, age: 0 };
   if (w.kind === 'wave') {
     // one wide roller wave; extra ammo makes it wider instead of adding waves
-    G.bullets.push({ ...base, x: x0 - 24, y: y0 + 10, vx: 0, vy: -w.speed, half: 62 * (1 + S.extra * 0.22), hits: new Set() });
+    G.bullets.push({ ...base, x: x0, y: y0 + 10, vx: 0, vy: -w.speed, half: 62 * (1 + S.extra * 0.22), hits: new Set() });
   } else {
     const lanes = 1 + S.extra;
     for (let l = 0; l < lanes; l++) {
@@ -1013,7 +1013,11 @@ function drawPlayer() {
     ctx.drawImage(im, x - w / 2, y + 48 - h + Math.sin(G.t * 12) * 2, w, h);
   }
   ctx.fillStyle = hex; ctx.globalAlpha = 0.9;
-  ctx.beginPath(); ctx.arc(x + 24, y - 77, 5 + Math.sin(G.t * 30) * 1.5, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+  // paint orb above the head marks where shots launch
+  ctx.shadowColor = hex; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(x, y - 100, 6 + Math.sin(G.t * 30) * 1.5, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0; ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.beginPath(); ctx.arc(x - 2, y - 102, 2, 0, 7); ctx.fill();
 }
 
 function drawHUD() {
