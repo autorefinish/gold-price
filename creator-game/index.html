@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>구독의 법칙</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;600;800&display=swap">
+<style>
+/* Layout: a phone-shaped app — status header, scrolling tab content, bottom tab bar; modals slide over it. */
+:root {
+  --ink: #1d1838;        /* deep indigo text/chrome */
+  --paper: #f6f3ff;      /* lavender-white surface */
+  --card: #ffffff;
+  --line: #e3ddf7;
+  --sub: #6c6590;        /* muted text */
+  --pop: #ff5a7a;        /* subscribe pink */
+  --violet: #6b4eff;     /* primary */
+  --mint: #19c39a;       /* success / growth */
+  --sun: #ffc23d;        /* money / highlight */
+  --sky: #38b6ff;
+  --display: "Jua", "Noto Sans KR", system-ui, sans-serif;
+  --body: "Noto Sans KR", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; margin: 0; }
+body { background: #2a2350; font-family: var(--body); color: var(--ink); overflow: hidden; }
+button { font-family: inherit; color: inherit; }
+#app { position: relative; height: 100%; max-width: 460px; margin: 0 auto; background: var(--paper); display: flex; flex-direction: column; overflow: hidden; }
+
+/* header */
+.hdr { background: var(--ink); color: #fff; padding: calc(env(safe-area-inset-top, 0px) + 10px) max(14px, env(safe-area-inset-right, 0px)) 10px max(14px, env(safe-area-inset-left, 0px)); display: flex; flex-direction: column; gap: 8px; }
+.hdr-top { display: flex; align-items: center; gap: 10px; }
+.logo { width: 34px; height: 34px; border-radius: 10px; background: linear-gradient(135deg, var(--pop), var(--violet)); display: grid; place-items: center; flex: none; }
+.logo::after { content: ""; border-left: 11px solid #fff; border-top: 7px solid transparent; border-bottom: 7px solid transparent; margin-left: 3px; }
+.ch-name { font-family: var(--display); font-size: 19px; line-height: 1.1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-sub { font-size: 11px; color: #b9b2e0; }
+.hdr-btn { margin-left: auto; background: rgba(255,255,255,.1); border: 0; border-radius: 10px; width: 36px; height: 36px; font-size: 17px; cursor: pointer; flex: none; }
+.stats { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 6px; }
+.stat { background: rgba(255,255,255,.08); border-radius: 12px; padding: 6px 9px; min-width: 0; }
+.stat b { display: block; font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat span { font-size: 10.5px; color: #b9b2e0; }
+.stat.subs b { color: #ff8fa6; font-size: 24px; }
+.stat.money b { color: var(--sun); }
+.energy { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: #cfc9f0; }
+.ebar { flex: 1; height: 9px; background: rgba(255,255,255,.12); border-radius: 9px; overflow: hidden; }
+.ebar i { display: block; height: 100%; background: linear-gradient(90deg, var(--mint), #7cf0c9); border-radius: 9px; transition: width .4s; }
+
+/* content */
+.content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+.tab { display: none; padding: 12px max(14px, env(safe-area-inset-right, 0px)) 18px max(14px, env(safe-area-inset-left, 0px)); flex-direction: column; gap: 12px; }
+.tab.on { display: flex; }
+.sect-t { font-family: var(--display); font-size: 17px; margin: 4px 0 -2px; display: flex; align-items: center; gap: 6px; }
+.sect-t small { font-family: var(--body); font-size: 11px; color: var(--sub); font-weight: 400; margin-left: auto; }
+
+/* home */
+.room { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 4 / 3.6; background: #3a3170 center/cover no-repeat; box-shadow: 0 6px 18px rgba(40,30,90,.18); }
+.room .hero { position: absolute; bottom: -4%; left: 50%; height: 82%; transform: translateX(-50%); filter: drop-shadow(0 8px 12px rgba(0,0,0,.35)); }
+.room .bubble { position: absolute; top: 12px; left: 12px; right: 12px; background: rgba(255,255,255,.94); border-radius: 14px; padding: 9px 12px; font-size: 13px; line-height: 1.45; box-shadow: 0 4px 10px rgba(0,0,0,.12); }
+.room .bubble::after { content: ""; position: absolute; bottom: -8px; left: 50%; border: 8px solid transparent; border-top-color: rgba(255,255,255,.94); border-bottom: 0; }
+.room .letter { position: absolute; right: 12px; bottom: 14px; background: #fff; border: 0; border-radius: 14px; padding: 8px 10px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,.25); animation: bob 1.6s ease-in-out infinite; }
+.room .letter .em { font-size: 22px; display: block; }
+@keyframes bob { 50% { transform: translateY(-5px); } }
+.big-cta { border: 0; border-radius: 18px; padding: 15px; font-family: var(--display); font-size: 21px; color: #fff; background: linear-gradient(135deg, var(--pop), var(--violet)); box-shadow: 0 6px 0 #4128c4; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.big-cta:active { transform: translateY(3px); box-shadow: 0 3px 0 #4128c4; }
+.big-cta small { font-family: var(--body); font-size: 12px; opacity: .85; }
+.big-cta:disabled { filter: grayscale(.6); opacity: .7; cursor: default; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 11px 12px; display: flex; flex-direction: column; gap: 4px; min-width: 0; text-align: left; cursor: pointer; }
+.tile .t { font-weight: 800; font-size: 13.5px; display: flex; align-items: center; gap: 5px; }
+.tile .d { font-size: 11.5px; color: var(--sub); line-height: 1.35; }
+.tile.live-on { border-color: var(--pop); box-shadow: 0 0 0 2px rgba(255,90,122,.25); }
+.dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--pop); display: inline-block; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.prog { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+.prog .top { display: flex; justify-content: space-between; font-size: 12.5px; }
+.prog .top b { font-family: var(--display); font-size: 15px; }
+.pbar { height: 12px; border-radius: 12px; background: var(--line); overflow: hidden; }
+.pbar i { display: block; height: 100%; background: linear-gradient(90deg, var(--pop), var(--violet)); border-radius: 12px; transition: width .6s; }
+.trend { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font-size: 12.5px; font-weight: 800; border-radius: 999px; padding: 5px 11px; background: #efe9ff; color: var(--violet); }
+.chip.hot { background: #ffe4ea; color: #e2365a; }
+.quests { display: flex; flex-direction: column; gap: 6px; }
+.quest { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 9px 11px; }
+.quest .q-t { flex: 1; font-size: 13px; min-width: 0; }
+.quest .q-t small { display: block; color: var(--sub); font-size: 11px; }
+.qbtn { border: 0; border-radius: 10px; padding: 7px 10px; font-weight: 800; font-size: 12px; background: var(--line); color: var(--sub); white-space: nowrap; }
+.qbtn.ready { background: var(--sun); color: var(--ink); cursor: pointer; }
+.qbtn.done { background: transparent; color: var(--mint); }
+
+/* channel */
+.vid { display: flex; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 8px; cursor: pointer; text-align: left; align-items: stretch; width: 100%; }
+.thumb { position: relative; width: 44%; flex: none; aspect-ratio: 16 / 9; border-radius: 11px; overflow: hidden; background: #333 center/cover; }
+.thumb img.face { position: absolute; left: -4%; bottom: -12%; height: 118%; filter: drop-shadow(2px 0 0 #fff) drop-shadow(-2px 0 0 #fff) drop-shadow(0 2px 0 #fff); }
+.thumb .tt { position: absolute; right: 5%; top: 8%; width: 58%; font-family: var(--display); font-size: 13px; line-height: 1.1; color: #fff; text-align: right; -webkit-text-stroke: 3px #000; paint-order: stroke fill; word-break: keep-all; }
+.thumb .viral { position: absolute; left: 6px; top: 6px; background: var(--pop); color: #fff; font-size: 10px; font-weight: 800; border-radius: 6px; padding: 2px 5px; }
+.vid .info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; padding: 2px 0; }
+.vid .vt { font-weight: 800; font-size: 13px; line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vid .vm { font-size: 11.5px; color: var(--sub); font-variant-numeric: tabular-nums; }
+.vid .vg { font-size: 11.5px; color: var(--mint); font-weight: 800; font-variant-numeric: tabular-nums; }
+.empty { text-align: center; color: var(--sub); font-size: 13.5px; padding: 30px 10px; background: var(--card); border: 1px dashed var(--line); border-radius: 16px; line-height: 1.6; }
+
+/* shop & collection */
+.item { display: flex; align-items: center; gap: 11px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 11px; }
+.item .ic { font-size: 28px; width: 42px; text-align: center; flex: none; }
+.item .mid { flex: 1; min-width: 0; }
+.item .nm { font-weight: 800; font-size: 14px; }
+.item .ds { font-size: 11.5px; color: var(--sub); line-height: 1.4; }
+.lv { display: flex; gap: 3px; margin-top: 4px; }
+.lv i { width: 16px; height: 5px; border-radius: 3px; background: var(--line); }
+.lv i.on { background: var(--violet); }
+.buy { border: 0; border-radius: 12px; padding: 9px 10px; font-weight: 800; font-size: 12.5px; background: var(--sun); cursor: pointer; white-space: nowrap; min-width: 84px; }
+.buy:disabled { background: var(--line); color: var(--sub); cursor: default; }
+.fans { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fan { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; cursor: pointer; min-width: 0; }
+.fan img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+.fan.locked img { filter: grayscale(1) brightness(.5) blur(1px); }
+.fan .nm { font-weight: 800; font-size: 13.5px; }
+.fan .ds { font-size: 11px; color: var(--sub); }
+.hearts { color: var(--pop); font-size: 12px; letter-spacing: 1px; }
+.combo { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 9px 11px; font-size: 13px; }
+.combo.locked { color: var(--sub); background: transparent; border-style: dashed; }
+.combo b { font-family: var(--display); font-size: 15px; }
+
+/* tab bar */
+.tabbar { display: grid; grid-template-columns: repeat(4, 1fr); background: #fff; border-top: 1px solid var(--line); padding: 4px max(6px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 4px) max(6px, env(safe-area-inset-left, 0px)); }
+.tabbar button { background: none; border: 0; padding: 6px 2px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--sub); cursor: pointer; position: relative; }
+.tabbar button span { font-size: 21px; filter: grayscale(1); opacity: .6; }
+.tabbar button.on { color: var(--violet); font-weight: 800; }
+.tabbar button.on span { filter: none; opacity: 1; }
+.badge { position: absolute; top: 3px; right: 26%; background: var(--pop); color: #fff; border-radius: 9px; font-size: 10px; font-weight: 800; padding: 0 5px; min-width: 16px; }
+
+/* modals */
+.modal { position: absolute; inset: 0; background: rgba(20,14,50,.55); display: flex; align-items: flex-end; justify-content: center; z-index: 30; }
+.modal[hidden] { display: none; }
+.sheet { background: var(--paper); width: 100%; max-height: 94%; border-radius: 24px 24px 0 0; padding: 16px max(16px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 16px) max(16px, env(safe-area-inset-left, 0px)); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; animation: up .25s ease-out; }
+@keyframes up { from { transform: translateY(40px); opacity: 0; } }
+.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 23px; margin: 0; }
+.sheet .lead { font-size: 13px; color: var(--sub); margin: -6px 0 0; line-height: 1.5; }
+.steps { display: flex; gap: 5px; }
+.steps i { flex: 1; height: 5px; border-radius: 5px; background: var(--line); }
+.steps i.on { background: var(--violet); }
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.card { background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 9px 4px 8px; text-align: center; cursor: pointer; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.card .em { font-size: 26px; }
+.card .nm { font-weight: 800; font-size: 12.5px; }
+.card .ds { font-size: 10.5px; color: var(--sub); }
+.card.sel { border-color: var(--violet); background: #efe9ff; }
+.card .tag { position: absolute; top: -7px; right: -4px; background: var(--pop); color: #fff; font-size: 9.5px; font-weight: 800; border-radius: 6px; padding: 1px 5px; }
+.card.locked { opacity: .4; cursor: default; }
+.pred { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 12.5px; line-height: 1.65; }
+.pred .combo-hit { color: #e2365a; font-weight: 800; }
+.actions { display: flex; gap: 8px; }
+.btn { flex: 1; border: 0; border-radius: 14px; padding: 13px; font-weight: 800; font-size: 15px; cursor: pointer; background: var(--violet); color: #fff; }
+.btn.ghost { background: var(--line); color: var(--ink); flex: 0 0 34%; }
+.btn:disabled { opacity: .45; cursor: default; }
+.btn:focus-visible, .card:focus-visible, .buy:focus-visible, .tile:focus-visible, .vid:focus-visible, .big-cta:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+
+/* minigames */
+.mg { background: var(--ink); border-radius: 18px; padding: 14px; color: #fff; display: flex; flex-direction: column; gap: 10px; align-items: center; user-select: none; }
+.mg .hint { font-size: 13px; color: #cfc9f0; text-align: center; }
+.meter { position: relative; width: 100%; height: 46px; border-radius: 14px; background: #3b3266; overflow: hidden; }
+.meter .zone { position: absolute; top: 0; bottom: 0; background: rgba(25,195,154,.45); border-left: 2px solid var(--mint); border-right: 2px solid var(--mint); }
+.meter .zone.perfect { background: rgba(255,194,61,.6); border-color: var(--sun); }
+.meter .needle { position: absolute; top: -4px; bottom: -4px; width: 5px; background: #fff; border-radius: 3px; box-shadow: 0 0 10px #fff; }
+.mg-arena { position: relative; width: 100%; aspect-ratio: 1 / 1; border-radius: 14px; background: radial-gradient(circle at 50% 40%, #4a3f86, #251e4a); overflow: hidden; touch-action: manipulation; }
+.target { position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%; border: 0; font-size: 26px; display: grid; place-items: center; cursor: pointer; background: radial-gradient(circle at 35% 35%, #fff, #ffd76b 40%, #ff8a3d); box-shadow: 0 0 14px rgba(255,200,80,.8); animation: pop .18s ease-out; }
+@keyframes pop { from { transform: scale(.3); } }
+.grid9 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; width: 100%; }
+.cell { aspect-ratio: 1; border-radius: 12px; border: 0; background: #3b3266; font-size: 30px; cursor: pointer; display: grid; place-items: center; transition: background .1s; }
+.cell.star { background: #ffe9a8; }
+.mg .score { font-family: var(--display); font-size: 20px; }
+.tap-btn { width: 100%; border: 0; border-radius: 14px; padding: 15px; font-family: var(--display); font-size: 20px; background: var(--sun); color: var(--ink); cursor: pointer; }
+.result { text-align: center; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+.stars { font-size: 30px; letter-spacing: 3px; color: var(--sun); }
+
+/* editing */
+.thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.thumbs .opt { border: 3px solid transparent; border-radius: 13px; padding: 0; cursor: pointer; background: none; display: flex; flex-direction: column; gap: 3px; align-items: stretch; font-size: 11.5px; font-weight: 800; }
+.thumbs .opt .thumb { width: 100%; }
+.thumbs .opt .thumb .tt { font-size: 9.5px; -webkit-text-stroke: 2.5px #000; }
+.thumbs .opt.sel { border-color: var(--violet); }
+.hooks { display: flex; flex-direction: column; gap: 7px; }
+.hook { text-align: left; border: 2px solid var(--line); background: var(--card); border-radius: 13px; padding: 9px 11px; cursor: pointer; font-size: 13.5px; font-weight: 800; display: flex; flex-direction: column; gap: 2px; }
+.hook small { font-weight: 400; font-size: 11px; color: var(--sub); }
+.hook.sel { border-color: var(--violet); background: #efe9ff; }
+.preview { display: flex; gap: 10px; align-items: center; }
+.preview .thumb { width: 52%; }
+
+/* video detail */
+.graph { width: 100%; height: 110px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 7px 9px; }
+.kpi b { display: block; font-family: var(--display); font-size: 17px; font-variant-numeric: tabular-nums; }
+.kpi span { font-size: 10.5px; color: var(--sub); }
+.cmt { display: flex; gap: 9px; align-items: flex-start; }
+.cmt .av { width: 34px; height: 34px; border-radius: 50%; flex: none; background: #ddd center/cover; display: grid; place-items: center; font-size: 17px; }
+.cmt .bd { flex: 1; min-width: 0; font-size: 13px; line-height: 1.45; }
+.cmt .who { font-weight: 800; font-size: 12px; }
+.cmt .who.named { color: var(--violet); }
+.cmt .who.snow { color: #2a9fd6; }
+.heart { border: 0; background: none; font-size: 18px; cursor: pointer; padding: 2px 4px; filter: grayscale(1); opacity: .5; }
+.heart.on { filter: none; opacity: 1; }
+
+/* story */
+.story { position: absolute; inset: 0; z-index: 50; background: #140f30; color: #fff; display: flex; flex-direction: column; }
+.story[hidden] { display: none; }
+.story .pic { flex: 1; background: #221a48 center/cover no-repeat; position: relative; min-height: 0; }
+.story .pic img.who { position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); height: 92%; filter: drop-shadow(0 6px 16px rgba(0,0,0,.5)); }
+.story .box { padding: 18px max(18px, env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + 18px) max(18px, env(safe-area-inset-left, 0px)); background: linear-gradient(#1a1440, #140f30); display: flex; flex-direction: column; gap: 10px; }
+.story .spk { font-family: var(--display); font-size: 17px; color: #ffb3c4; }
+.story .txt { font-size: 15.5px; line-height: 1.7; min-height: 5.1em; white-space: pre-line; }
+.story .nxt { align-self: flex-end; border: 0; background: var(--pop); color: #fff; font-weight: 800; border-radius: 12px; padding: 11px 18px; font-size: 14px; cursor: pointer; }
+.story .chap { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 16px; background: rgba(0,0,0,.45); border-radius: 10px; padding: 5px 10px; font-family: var(--display); font-size: 14px; }
+.setup { display: flex; flex-direction: column; gap: 10px; }
+.pick2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pick2 button { border: 3px solid transparent; border-radius: 16px; background: #2a2259; padding: 6px; cursor: pointer; display: flex; flex-direction: column; align-items: center; color: #fff; font-weight: 800; font-size: 13px; }
+.pick2 button img { height: 140px; object-fit: contain; }
+.pick2 button.sel { border-color: var(--pop); }
+.setup input { width: 100%; border: 2px solid #4a3f86; background: #221a48; color: #fff; border-radius: 12px; padding: 12px; font-size: 16px; font-family: var(--body); }
+.setup input:focus { outline: none; border-color: var(--pop); }
+
+/* toast */
+.toasts { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 140px); left: 0; right: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 60; pointer-events: none; padding: 0 16px; }
+.toast { background: var(--ink); color: #fff; border-radius: 14px; padding: 10px 14px; font-size: 13px; font-weight: 600; box-shadow: 0 6px 18px rgba(0,0,0,.3); animation: tin .3s ease-out; max-width: 100%; }
+@keyframes tin { from { transform: translateY(-10px); opacity: 0; } }
+.float-sub { position: absolute; font-family: var(--display); color: #ff8fa6; font-size: 18px; pointer-events: none; animation: fl 1.2s ease-out forwards; z-index: 61; }
+@keyframes fl { to { transform: translateY(-40px); opacity: 0; } }
+
+/* live */
+.live-arena { position: relative; width: 100%; height: 330px; border-radius: 16px; overflow: hidden; background: #18122e; }
+.live-msg { position: absolute; left: 10px; right: 10px; border: 0; text-align: left; border-radius: 12px; padding: 8px 10px; font-size: 13px; color: #fff; cursor: pointer; display: flex; gap: 6px; align-items: center; }
+.live-msg.q { background: #2f4fb8; }
+.live-msg.p { background: #3b3266; }
+.live-msg.t { background: #a3243f; }
+.live-msg.d { background: #b8860b; }
+.live-msg.done { opacity: .35; text-decoration: line-through; }
+.live-top { display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+.live-top .lv-badge { background: var(--pop); color: #fff; border-radius: 6px; padding: 2px 8px; font-weight: 800; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="hdr">
+    <div class="hdr-top">
+      <div class="logo" aria-hidden="true"></div>
+      <div style="min-width:0">
+        <div class="ch-name" id="chName">내 채널</div>
+        <div class="ch-sub" id="chSub">뷰튜브 크리에이터 · 챕터 1</div>
+      </div>
+      <button class="hdr-btn" id="setBtn" aria-label="설정">⚙️</button>
+    </div>
+    <div class="stats">
+      <div class="stat subs"><b id="sSubs">0</b><span>구독자</span></div>
+      <div class="stat"><b id="sViews">0</b><span>총 조회수</span></div>
+      <div class="stat money"><b id="sMoney">0</b><span>잔고(원)</span></div>
+    </div>
+    <div class="energy"><span>⚡ 에너지</span><div class="ebar"><i id="eBar"></i></div><span id="eTxt">100/100</span></div>
+  </header>
+
+  <main class="content" id="content">
+    <section class="tab on" id="tab-home">
+      <div class="room" id="room">
+        <img class="hero" id="roomHero" alt="">
+        <div class="bubble" id="bubble">오늘은 어떤 영상을 찍어볼까?</div>
+        <button class="letter" id="letterBtn" hidden><span class="em">💌</span>첫눈의 편지</button>
+      </div>
+      <button class="big-cta" id="makeBtn">🎬 영상 만들기 <small>⚡25</small></button>
+      <div class="row2">
+        <button class="tile" id="liveTile"><div class="t">🔴 라이브 방송</div><div class="d" id="liveDesc"></div></button>
+        <button class="tile" id="drinkTile"><div class="t">🥤 에너지 드링크</div><div class="d" id="drinkDesc"></div></button>
+      </div>
+      <div class="prog">
+        <div class="top"><span id="chapLabel">챕터 1 · 반지하의 시작</span><b id="chapGoal">0 / 100</b></div>
+        <div class="pbar"><i id="chapBar" style="width:0"></i></div>
+      </div>
+      <div class="sect-t">🔥 오늘의 트렌드 <small id="trendReset"></small></div>
+      <div class="trend" id="trend"></div>
+      <div class="sect-t">✅ 오늘의 할 일 <small id="streakTxt"></small></div>
+      <div class="quests" id="quests"></div>
+    </section>
+
+    <section class="tab" id="tab-channel">
+      <div class="sect-t">📺 내 영상 <small>조회수는 실제 시간으로 계속 올라요</small></div>
+      <div id="vidList" style="display:flex;flex-direction:column;gap:9px"></div>
+    </section>
+
+    <section class="tab" id="tab-shop">
+      <div class="sect-t">🛠 장비 <small>영상 품질이 올라가요</small></div>
+      <div id="shopList" style="display:flex;flex-direction:column;gap:9px"></div>
+    </section>
+
+    <section class="tab" id="tab-book">
+      <div class="sect-t">💗 단골 팬 <small>댓글에 하트를 누르면 이야기가 열려요</small></div>
+      <div class="fans" id="fanList"></div>
+      <div class="sect-t">💌 첫눈의 편지</div>
+      <div id="letterList" style="display:flex;flex-direction:column;gap:7px"></div>
+      <div class="sect-t">📖 콘텐츠 레시피 도감 <small id="comboCount"></small></div>
+      <div id="comboList" style="display:flex;flex-direction:column;gap:7px"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button class="on" data-tab="home"><span>🏠</span>홈</button>
+    <button data-tab="channel"><span>📺</span>내 채널<i class="badge" id="vidBadge" hidden></i></button>
+    <button data-tab="shop"><span>🛠</span>장비</button>
+    <button data-tab="book"><span>📖</span>도감<i class="badge" id="bookBadge" hidden></i></button>
+  </nav>
+
+  <div class="modal" id="modal" hidden><div class="sheet" id="sheet"></div></div>
+
+  <div class="story" id="story" hidden>
+    <div class="pic" id="storyPic"><div class="chap" id="storyChap" hidden></div><img class="who" id="storyWho" alt="" hidden></div>
+    <div class="box">
+      <div class="spk" id="storySpk"></div>
+      <div class="txt" id="storyTxt"></div>
+      <div id="storyExtra"></div>
+      <button class="nxt" id="storyNext">다음 ▶</button>
+    </div>
+  </div>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ============ data ============ */
+const GENRES = {
+  mukbang: { name: '먹방', em: '🍜', mg: 'timing', bg: 'g_mukbang' },
+  game:    { name: '게임', em: '🎮', mg: 'tap',    bg: 'g_game' },
+  cook:    { name: '요리', em: '🍳', mg: 'timing', bg: 'g_cook' },
+  vlog:    { name: '브이로그', em: '📷', mg: 'snap', bg: 'g_vlog' },
+  review:  { name: '리뷰', em: '📦', mg: 'tap',    bg: 'g_review' },
+  fitness: { name: '운동', em: '💪', mg: 'snap',   bg: 'g_fitness' },
+};
+const FORMATS = {
+  h24:     { name: '24시간', em: '⏰', word: '24시간' },
+  budget:  { name: '만원으로', em: '💸', word: '만원으로' },
+  rank:    { name: '랭킹', em: '🏆', word: 'TOP 5' },
+  react:   { name: '리액션', em: '😲', word: '첫 리액션' },
+  vs:      { name: '초보 vs 고수', em: '⚔️', word: '초보 vs 고수' },
+  routine: { name: '하루 루틴', em: '🌅', word: '하루 루틴' },
+};
+const SPICES = {
+  none:  { name: '없음', em: '➖' },
+  mom:   { name: '엄마 출연', em: '👩‍🦳' },
+  cat:   { name: '고양이', em: '🐱' },
+  fail:  { name: '실패 편집', em: '🤣' },
+};
+// hidden recipes: genre+format(+spice) — found ones go to the collection book
+const COMBOS = [
+  { g: 'cook', f: 'budget', s: 'mom', title: '엄마랑 만원으로 일주일 버티기', mult: 1.8 },
+  { g: 'cook', f: 'budget', title: '자취생 만원 레시피', mult: 1.45 },
+  { g: 'mukbang', f: 'h24', title: '24시간 먹방 챌린지', mult: 1.45 },
+  { g: 'game', f: 'vs', title: '초보 vs 고수 게임 대결', mult: 1.4 },
+  { g: 'review', f: 'rank', title: '가성비템 TOP 5', mult: 1.45 },
+  { g: 'vlog', f: 'routine', title: '갓생 하루 루틴', mult: 1.45 },
+  { g: 'fitness', f: 'vs', title: '헬린이 vs 헬스 고수', mult: 1.4 },
+  { g: 'vlog', f: 'routine', s: 'cat', title: '고양이와 함께하는 아침 루틴', mult: 1.75 },
+  { g: 'game', f: 'react', s: 'fail', title: '실패 모음 리액션 대참사', mult: 1.7 },
+  { g: 'mukbang', f: 'react', s: 'mom', title: '엄마의 첫 매운맛 리액션', mult: 1.7 },
+  { g: 'review', f: 'budget', title: '만원으로 사는 신기한 물건', mult: 1.4 },
+  { g: 'fitness', f: 'routine', title: '하루 10분 홈트 루틴', mult: 1.4 },
+];
+const EXPRS = {
+  smile:   { name: '웃는 얼굴', good: ['mukbang', 'vlog', 'cook'] },
+  wow:     { name: '깜짝 놀람', good: ['review', 'game', 'mukbang'] },
+  serious: { name: '진지한 얼굴', good: ['fitness', 'cook', 'game'] },
+};
+const HOOKS = {
+  honest:  { name: '솔직하게', ctr: 1.0, trust: +1, conv: 1.08, ex: '솔직 후기' },
+  curious: { name: '호기심 자극', ctr: 1.18, trust: 0, conv: 1.0, ex: '결과가 의외였다…' },
+  bait:    { name: '자극적인 낚시', ctr: 1.4, trust: -4, conv: 0.78, ex: '100% 실화?! 경찰 출동' },
+};
+const EQUIP = {
+  cam:   { name: '카메라', icon: '📷', steps: ['금 간 휴대폰', '중고 웹캠', '미러리스 카메라', '시네마 카메라'], price: [0, 60000, 450000, 2800000], q: 0.12, desc: '영상 품질' },
+  light: { name: '조명', icon: '💡', steps: ['책상 스탠드', '링라이트', '소프트박스 2개', '스튜디오 조명'], price: [0, 35000, 220000, 1200000], q: 0.08, desc: '영상 품질' },
+  mic:   { name: '마이크', icon: '🎙', steps: ['휴대폰 마이크', '핀 마이크', '콘덴서 마이크', '방송용 마이크'], price: [0, 30000, 180000, 900000], q: 0.08, desc: '영상 품질' },
+  edit:  { name: '편집 프로그램', icon: '🖥', steps: ['무료 앱', '유료 앱', '전문가용 툴', '편집자 고용'], price: [0, 45000, 300000, 1800000], ctr: 0.07, desc: '클릭률(썸네일·제목)' },
+};
+const FANS = {
+  junseo: { name: '준서', img: 'fan_junseo', unlock: 1, desc: '1등 댓글 장인 초등학생',
+    lines: ['1등!!! 형/누나 영상 학교에서 친구들한테 다 보여줬어요 ㅋㅋ', '저 이번에 전학 가요… 새 학교 무서운데 영상 보면서 버틸게요', '새 학교에서 형/누나 구독자 3명 만들었어요!! 제가 홍보팀장임 ㅋㅋ'] },
+  night:  { name: '밤샘', img: 'fan_night', unlock: 30, desc: '새벽마다 보는 간호사',
+    lines: ['나이트 근무 끝나고 보는 영상이 제일 좋아요. 오늘도 고생했다고 말해주는 것 같아서.', '요즘 그만둘까 고민 중이에요. 근데 영상 보다가 조금만 더 버텨보기로 했어요.', '저 수간호사 됐어요!! 휴게실에서 다같이 구독했어요 ㅎㅎ'] },
+  fact:   { name: '팩트폭격기', img: 'fan_fact', unlock: 100, desc: '늘 비판하지만 정확한 직장인',
+    lines: ['편집 템포 3초 늘어짐. 썸네일 글씨 너무 작음. 그래도 기획은 괜찮음.', '저번에 말한 거 고쳤네? …인정. 구독 박음.', '솔직히 처음부터 봤음. 이 채널 클 거라고 생각했어. 계속 지적할 거니까 각오해.'] },
+  momo:   { name: 'Momo', img: 'fan_momo', unlock: 500, desc: '일본에서 보는 한국어 공부생',
+    lines: ['こんにちは! 한국어 공부하면서 보고 있어요! 자막 고마워요!', '영상 덕분에 한국어 시험 붙었어요!! 정말 정말 고마워요 ㅠㅠ', '다음 달에 서울 여행 가요! 영상에 나온 가게 꼭 갈 거예요!'] },
+};
+const SNOW_LETTERS = [
+  '첫 영상 잘 봤어요. 조명이 좀 어둡던데, 그래도 웃는 얼굴이 참 좋더라고요. 계속 올려주세요. 기다릴게요.',
+  '오늘도 1등으로 봤어요. 옛날에 누가 그랬어요. 처음 하는 건 다 서툴러도, 그만두지만 않으면 된다고.',
+  '밥은 챙겨 먹어요? 컵라면 말고요. 영상 뒤에 컵라면 용기가 보이길래.',
+  '오래된 캠코더 하나 갖고 있죠? 그 테이프… 언젠가 꼭 디지털로 옮겨 놔요. 소리는 금방 늘어지거든요.',
+  '구독자가 늘어서 좋겠어요. 숫자 말고 사람을 봐요. 댓글 하나하나가 다 누군가의 하루예요.',
+  '비 오는 날 반지하는 많이 습하죠. 제습기 하나 사요. 카메라 렌즈에 곰팡이 피면 큰일이에요.',
+  '내가 누군지 궁금하죠? 100만 되는 날 알려줄게요. 그때까지는… 1번 시청자로만 있을게요.',
+  '오늘은 그냥, 잘하고 있다고 말해주고 싶어서요.',
+];
+const CHAPTERS = [
+  { goal: 100, name: '반지하의 시작' },
+  { goal: 1000, name: '첫 알고리즘' },
+  { goal: 10000, name: '수익화' },
+  { goal: 100000, name: '라이벌 (다음 업데이트)' },
+];
+const NICKS = ['감자칩', '고구마맛탕', '야근요정', '퇴근하고싶다', '별빛산책', '구독했어요', '민트초코파', '새벽세시', '코딩하는곰', '오늘도맑음', '라면은신라', '딸기우유', '먼지털이', '느린거북', '파란하늘', '집순이', '고양이집사', '헬린이', '자취3년차', '알고리즘타고옴'];
+const CMT = {
+  any: ['알고리즘이 여기로 데려왔네요', '목소리 좋아요', '편집 센스 무엇 ㅋㅋㅋ', '구독 누르고 갑니다', '이 채널 뜰 것 같아요', '다음 영상 언제 올라와요?', '썸네일 보고 들어왔는데 내용이 더 좋네요', 'ㅋㅋㅋㅋㅋㅋ 마지막 장면 미쳤다'],
+  mukbang: ['보다가 배고파서 라면 끓였어요', '먹는 소리 ASMR 수준', '저거 어디 가게예요?'],
+  game: ['그 구간 저도 맨날 죽어요 ㅠ', '컨트롤 실화냐', '다음엔 같이 해요!'],
+  cook: ['레시피 그대로 해봤는데 성공!', '자막에 재료 적어주세요', '엄마한테 해드려야겠다'],
+  vlog: ['저도 이렇게 살고 싶다', '배경음악 정보 알 수 있을까요', '하루가 힐링되네요'],
+  review: ['덕분에 돈 아꼈어요', '솔직한 리뷰 좋아요', '광고 아닌 거 맞죠? ㅋㅋ'],
+  fitness: ['오늘부터 따라합니다', '자세 설명 최고', '3일차인데 벌써 근육통'],
+  bait: ['제목 낚시 아님?', '실화는 무슨 ㅋㅋ', '제목이랑 내용이 다르잖아요'],
+};
+
+/* ============ helpers ============ */
+const $ = id => document.getElementById(id);
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const HOUR = 3600e3, MIN = 60e3;
+function fmt(n) {
+  n = Math.floor(n);
+  if (n >= 1e8) return (n / 1e8).toFixed(n >= 1e9 ? 0 : 1).replace(/\.0$/, '') + '억';
+  if (n >= 1e4) return (n / 1e4).toFixed(n >= 1e5 ? 0 : 1).replace(/\.0$/, '') + '만';
+  return n.toLocaleString('ko-KR');
+}
+function won(n) { return fmt(n) + '원'; }
+function seeded(seed) { let s = seed >>> 0 || 1; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
+function hash(str) { let h = 2166136261; for (const c of str) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* ============ state & time ============ */
+let S = null;
+function now() { return Date.now() + (S ? S.warpOffset : 0); }
+function dayKey(t = now()) { const d = new Date(t); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function fresh() {
+  const t = Date.now();
+  return {
+    v: 1, createdAt: t, started: false, gender: 'm', channel: '',
+    money: 870000, energy: 100, energyAt: t, trust: 70, subsBonus: 0, viewsBonus: 0,
+    mastery: {}, videos: [], monetizedAt: 0, chapterSeen: 0,
+    letters: { read: 0, availDay: '' }, day: '', streak: 0, lastDay: '',
+    quests: { day: '', list: [] }, live: {}, combos: {}, fans: {}, hearted: {}, fanStory: {},
+    equip: { cam: 0, light: 0, mic: 0, edit: 0 }, drinks: { day: '', n: 0 },
+    warp: false, warpOffset: 0, lastSeen: t, seenSnow: false, newVids: 0,
+  };
+}
+
+/* ============ views model (pure function of time → works offline) ============ */
+const TAU = 5;   // hours: views reach ~63% at 5h, ~99% at 24h
+function viewsOf(v, t = now()) {
+  const h = Math.max(0, (t - v.t) / HOUR);
+  let views = v.P * (1 - Math.exp(-h / TAU));
+  if (v.viralAt && t > v.viralAt) views += v.P * (v.viralMult - 1) * (1 - Math.exp(-((t - v.viralAt) / HOUR) / 3));
+  if (h > 24) views += v.P * v.viralMultT * 0.03 * Math.min(30, (h - 24) / 24);   // evergreen tail for a month
+  return Math.floor(views);
+}
+function totals(t = now()) {
+  let views = S.viewsBonus, subs = S.subsBonus;
+  for (const v of S.videos) { const n = viewsOf(v, t); views += n; subs += n * v.conv; }
+  return { views, subs: Math.floor(subs) };
+}
+
+/* ============ energy ============ */
+const E_MAX = 100, E_REGEN = 150e3;   // 1 energy per 2.5 min → full in ~4h
+function syncEnergy() {
+  const t = now();
+  if (S.energy >= E_MAX) { S.energyAt = t; return; }
+  const gained = Math.floor((t - S.energyAt) / E_REGEN);
+  if (gained > 0) { S.energy = Math.min(E_MAX, S.energy + gained); S.energyAt += gained * E_REGEN; if (S.energy >= E_MAX) S.energyAt = t; }
+}
+function useEnergy(n) { syncEnergy(); if (S.energy < n) return false; if (S.energy >= E_MAX) S.energyAt = now(); S.energy -= n; dirty(); return true; }
+
+/* ============ saving: private per-player cloud save + browser fallback ============ */
+const LS_KEY = 'subscribe-law-save-v1';
+let db = null, uid = null, saveTimer = null, saving = false, pending = false;
+function dirty() { clearTimeout(saveTimer); saveTimer = setTimeout(save, 2500); }
+function serialize() { S.lastSeen = now(); if (S.videos.length > 200) S.videos = S.videos.slice(-200); return JSON.stringify(S); }
+async function save() {
+  const json = serialize();
+  try { localStorage.setItem(LS_KEY, json); } catch (e) {}
+  if (!db || !uid) return;
+  if (saving) { pending = true; return; }
+  saving = true;
+  try { await db.doc('data/users/' + uid + '/save').set({ json, savedAt: Date.now() }); } catch (e) {}
+  saving = false;
+  if (pending) { pending = false; save(); }
+}
+function loadLocal() { try { const j = localStorage.getItem(LS_KEY); return j ? JSON.parse(j) : null; } catch (e) { return null; } }
+async function connectCloud() {
+  try {
+    if (!window.claude || !window.claude.use) return;
+    const [d, user] = await Promise.all([window.claude.use('db'), window.claude.use('user')]);
+    if (!d || !user) return;
+    const id = await user.id(); if (!id) return;
+    db = d; uid = id;
+    const snap = await db.doc('data/users/' + uid + '/save').get();
+    if (snap.exists) {
+      const remote = JSON.parse(snap.data().json);
+      if (!S.started || (remote.lastSeen || 0) > (S.lastSeen || 0)) { S = Object.assign(fresh(), remote); boot(true); toast('☁️ 저장된 진행 상황을 불러왔어요'); return; }
+    }
+    if (S.started) save();
+  } catch (e) { /* stay on browser save */ }
+}
+window.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && S && S.started) save(); });
+window.addEventListener('pagehide', () => { if (S && S.started) save(); });
+
+/* ============ images ============ */
+const A = n => 'assets/' + n + '.webp';
+const heroImg = (e = 'smile') => A('hero_' + S.gender + '_' + e);
+
+/* ============ UI basics ============ */
+function toast(msg, ms = 2600) {
+  const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+  $('toasts').appendChild(el); setTimeout(() => el.remove(), ms);
+}
+let actx = null;
+function beep(f, d = .08, type = 'triangle', v = .05, slide = 0) {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  const t = actx.currentTime, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(40, f + slide), t + d);
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d);
+}
+const ding = () => { beep(880, .1); setTimeout(() => beep(1320, .15), 90); };
+
+function openSheet(html) { $('sheet').innerHTML = html; $('modal').hidden = false; $('sheet').scrollTop = 0; }
+function closeSheet() { $('modal').hidden = true; $('sheet').innerHTML = ''; $('sheet').onclick = null; delete $('modal').dataset.lock; }
+$('modal').addEventListener('click', e => { if (e.target === $('modal') && !$('modal').dataset.lock) closeSheet(); });
+
+/* ============ story scenes ============ */
+let storyQueue = [], storyDone = null;
+function playStory(pages, done) {
+  storyQueue = pages.slice(); storyDone = done; $('story').hidden = false; nextPage();
+}
+function nextPage() {
+  const p = storyQueue.shift();
+  if (!p) { $('story').hidden = true; const d = storyDone; storyDone = null; d && d(); return; }
+  $('storyPic').style.backgroundImage = p.bg ? `url(${A(p.bg)})` : 'none';
+  $('storyChap').hidden = !p.chap; $('storyChap').textContent = p.chap || '';
+  const w = $('storyWho'); if (p.who) { w.src = p.who; w.hidden = false; } else w.hidden = true;
+  $('storySpk').textContent = p.spk || '';
+  $('storyTxt').textContent = p.txt || '';
+  $('storyExtra').innerHTML = '';
+  $('storyNext').textContent = p.btn || '다음 ▶';
+  $('storyNext').hidden = false;
+  if (p.render) p.render($('storyExtra'));
+}
+$('storyNext').addEventListener('click', () => { beep(660, .05); const p = $('storyNext').onBefore; if (p && !p()) return; $('storyNext').onBefore = null; nextPage(); });
+
+function prologue() {
+  playStory([
+    { bg: 'prologue', chap: '프롤로그', txt: '3년 다닌 회사에서 권고사직 통보를 받은 날.\n남은 건 반지하 원룸, 금이 간 휴대폰, 그리고 잔고 87만 원.' },
+    { bg: 'prologue', txt: '이삿짐을 싸다 할머니가 남긴 낡은 캠코더를 발견했다.\n안에 든 테이프를 틀자, 익숙한 목소리가 흘러나왔다.' },
+    { bg: 'prologue', spk: '할머니 (테이프)', txt: '"우리 손주, 나중에 테레비 나와라~\n할머니가 1번으로 볼게."' },
+    { bg: 'room1', txt: '…테레비는 몰라도, 뷰튜브 정도는 해볼 수 있지 않을까?\n나는 반쯤 장난으로 채널을 만들기로 했다.', btn: '채널 만들기',
+      render: el => {
+        el.innerHTML = `<div class="setup">
+          <div class="pick2"><button id="gM" class="${S.gender === 'm' ? 'sel' : ''}"><img src="${A('hero_m_smile')}" alt="">이 모습으로</button>
+          <button id="gF" class="${S.gender === 'f' ? 'sel' : ''}"><img src="${A('hero_f_smile')}" alt="">이 모습으로</button></div>
+          <label for="chIn" style="font-size:13px;color:#cfc9f0">채널 이름</label>
+          <input id="chIn" maxlength="14" placeholder="예: 반지하 라이프" value="${esc(S.channel)}"></div>`;
+        const set = g => { S.gender = g; $('gM').classList.toggle('sel', g === 'm'); $('gF').classList.toggle('sel', g === 'f'); };
+        $('gM').onclick = () => set('m'); $('gF').onclick = () => set('f');
+        $('storyNext').onBefore = () => {
+          const v = $('chIn').value.trim();
+          if (!v) { $('chIn').focus(); $('chIn').placeholder = '채널 이름을 입력해 주세요'; return false; }
+          S.channel = v; return true;
+        };
+      } },
+    { bg: 'room1', who: null, chap: '챕터 1 · 반지하의 시작', txt: '목표는 일단 구독자 100명.\n소재를 고르고, 찍고, 편집해서 올리면 조회수는 실제 시간으로 천천히 오른다.\n자고 일어나면… 무슨 일이 생길지도 모른다.', btn: '시작하기' },
+  ], () => { S.started = true; S.day = ''; dailyCheck(); renderAll(); save(); });
+  $('storyWho').hidden = true;
+}
+
+/* ============ daily systems ============ */
+function trendFor(day) {
+  const r = seeded(hash('trend' + day));
+  const gs = Object.keys(GENRES), fs = Object.keys(FORMATS);
+  return { g: gs[Math.floor(r() * gs.length)], f: fs[Math.floor(r() * fs.length)], word: pick(['#겨울', '#자취', '#직장인', '#힐링', '#가성비', '#챌린지', '#새해', '#주말']) };
+}
+function makeQuests(day) {
+  const r = seeded(hash('q' + day));
+  const pool = [
+    { id: 'up2', t: '영상 2개 올리기', need: 2, rw: { energy: 30 } },
+    { id: 'trend', t: '오늘의 트렌드 소재로 영상 올리기', need: 1, rw: { money: 20000 } },
+    { id: 'heart', t: '댓글에 하트 3개 누르기', need: 3, rw: { energy: 15 } },
+    { id: 'perfect', t: '촬영에서 별 3개 받기', need: 1, rw: { money: 15000 } },
+    { id: 'combo', t: '레시피 조합으로 영상 올리기', need: 1, rw: { energy: 20 } },
+  ];
+  const list = pool.slice().sort(() => r() - .5).slice(0, 3).map(q => ({ ...q, have: 0, claimed: false }));
+  if (S.subsBonus + 0 >= 0 && totals().subs >= 100) list[2] = { id: 'live', t: '라이브 방송 1번 하기', need: 1, rw: { money: 25000 }, have: 0, claimed: false };
+  return list;
+}
+function questProgress(id, n = 1) {
+  for (const q of S.quests.list) if (q.id === id && !q.claimed) q.have = Math.min(q.need, q.have + n);
+  renderQuests();
+}
+function dailyCheck() {
+  const d = dayKey();
+  if (S.day === d) return;
+  const first = !S.day;
+  const y = new Date(now() - 86400e3); const yk = y.getFullYear() + '-' + (y.getMonth() + 1) + '-' + y.getDate();
+  S.streak = S.day === yk ? S.streak + 1 : 1;
+  S.day = d;
+  S.quests = { day: d, list: makeQuests(d) };
+  if (S.videos.length) S.letters.availDay = d;   // a new letter from 첫눈 each day once the channel exists
+  if (!first) {
+    const bonus = 5000 * Math.min(7, S.streak);
+    syncEnergy(); S.energy = Math.min(E_MAX + 40, S.energy + 40);
+    S.money += bonus;
+    setTimeout(() => toast(`📅 ${S.streak}일 연속 접속! ⚡+40 · 💰+${won(bonus)}`, 3500), 600);
+  }
+  dirty();
+}
+function liveWindow(t = now()) {
+  const d = new Date(t), m = d.getHours() * 60 + d.getMinutes();
+  if (m >= 11 * 60 + 30 && m < 13 * 60 + 30) return 'lunch';
+  if (m >= 19 * 60 && m < 23 * 60 + 30) return 'night';
+  return null;
+}
+function nextLiveText() {
+  const d = new Date(now()), m = d.getHours() * 60 + d.getMinutes();
+  const at = m < 11 * 60 + 30 ? '오늘 11:30' : m < 19 * 60 ? '오늘 19:00' : '내일 11:30';
+  return '다음 방송: ' + at;
+}
+
+/* ============ rendering ============ */
+let shown = { subs: 0, views: 0, money: 0 };
+function chapterIdx(subs) { let i = 0; while (i < CHAPTERS.length - 1 && subs >= CHAPTERS[i].goal) i++; return i; }
+function renderHeader(t) {
+  const tt = t || totals();
+  shown.subs += (tt.subs - shown.subs) * .25; if (Math.abs(tt.subs - shown.subs) < 1) shown.subs = tt.subs;
+  shown.views += (tt.views - shown.views) * .25; if (Math.abs(tt.views - shown.views) < 1) shown.views = tt.views;
+  shown.money += (S.money - shown.money) * .3; if (Math.abs(S.money - shown.money) < 1) shown.money = S.money;
+  $('sSubs').textContent = fmt(shown.subs);
+  $('sViews').textContent = fmt(shown.views);
+  $('sMoney').textContent = fmt(shown.money);
+  syncEnergy();
+  $('eBar').style.width = Math.min(100, S.energy) + '%';
+  const nextIn = S.energy >= E_MAX ? '' : ' · ' + mmss(E_REGEN - (now() - S.energyAt));
+  $('eTxt').textContent = S.energy + '/' + E_MAX + nextIn;
+  $('chName').textContent = S.channel || '내 채널';
+  const ci = chapterIdx(tt.subs);
+  $('chSub').textContent = `뷰튜브 크리에이터 · 챕터 ${ci + 1}${S.monetizedAt ? ' · 수익 창출 중' : ''}`;
+}
+function mmss(ms) { ms = Math.max(0, ms); const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+function renderHome() {
+  const tt = totals(), ci = chapterIdx(tt.subs), ch = CHAPTERS[ci], prev = ci ? CHAPTERS[ci - 1].goal : 0;
+  $('room').style.backgroundImage = `url(${A(tt.subs >= 1000 ? 'room2' : 'room1')})`;
+  $('roomHero').src = heroImg(tt.subs >= 1000 ? 'smile' : 'smile');
+  $('chapLabel').textContent = `챕터 ${ci + 1} · ${ch.name}`;
+  $('chapGoal').textContent = `${fmt(tt.subs)} / ${fmt(ch.goal)}`;
+  $('chapBar').style.width = clamp((tt.subs - prev) / (ch.goal - prev) * 100, 0, 100) + '%';
+  const tr = trendFor(S.day || dayKey());
+  $('trend').innerHTML = `<span class="chip hot">${GENRES[tr.g].em} ${GENRES[tr.g].name} 조회수 ×1.5</span><span class="chip hot">${FORMATS[tr.f].em} ${FORMATS[tr.f].name} ×1.3</span><span class="chip">${tr.word}</span>`;
+  const mid = new Date(now()); mid.setHours(24, 0, 0, 0);
+  $('trendReset').textContent = '바뀌기까지 ' + Math.floor((mid - now()) / HOUR) + '시간';
+  $('streakTxt').textContent = S.streak ? `🔥 ${S.streak}일 연속 접속` : '';
+  syncEnergy();
+  $('makeBtn').disabled = S.energy < 25;
+  $('makeBtn').innerHTML = S.energy < 25 ? `😴 에너지 충전 중 <small>${mmss(E_REGEN * (25 - S.energy) - (now() - S.energyAt))} 후 가능</small>` : '🎬 영상 만들기 <small>⚡25</small>';
+  // live
+  const w = liveWindow(), liveKey = S.day + '-' + w, unlocked = tt.subs >= 100;
+  const canLive = unlocked && w && !S.live[liveKey];
+  $('liveTile').classList.toggle('live-on', !!canLive);
+  $('liveDesc').innerHTML = !unlocked ? '구독자 100명이 되면 열려요' : canLive ? '<span class="dot-live"></span> 지금 방송 가능! ⚡15' : (w ? '이번 시간대 방송 완료 · ' : '') + nextLiveText();
+  // drink
+  const dn = S.drinks.day === S.day ? S.drinks.n : 0;
+  $('drinkDesc').textContent = dn >= 3 ? '오늘은 다 마셨어요' : `⚡+30 · 5,000원 (오늘 ${3 - dn}개 남음)`;
+  // letter
+  const hasLetter = S.letters.availDay === S.day && S.letters.read < SNOW_LETTERS.length * 99 && S.letters.lastRead !== S.day && S.seenSnow;
+  $('letterBtn').hidden = !hasLetter;
+  $('bubble').textContent = bubbleText(tt);
+  renderQuests();
+}
+function bubbleText(tt) {
+  if (!S.videos.length) return '일단 첫 영상부터 올려보자! 아래 영상 만들기를 눌러줘.';
+  const tr = trendFor(S.day);
+  const pendingV = S.videos.filter(v => now() - v.t < 24 * HOUR).length;
+  if (S.energy < 25) return '피곤하다… 에너지가 차는 동안 올린 영상 조회수가 계속 오를 거야.';
+  if (pendingV) return `올린 영상 ${pendingV}개가 지금도 조회수가 오르는 중! 오늘 트렌드는 ${GENRES[tr.g].name}래.`;
+  return `오늘은 ${GENRES[tr.g].name} 영상이 잘 된대. 한번 찍어볼까?`;
+}
+function renderQuests() {
+  if (!S.quests) return;
+  $('quests').innerHTML = S.quests.list.map((q, i) => {
+    const rw = q.rw.energy ? `⚡+${q.rw.energy}` : `💰+${won(q.rw.money)}`;
+    const st = q.claimed ? '<span class="qbtn done">완료 ✓</span>' : q.have >= q.need ? `<button class="qbtn ready" data-q="${i}">${rw} 받기</button>` : `<span class="qbtn">${q.have}/${q.need}</span>`;
+    return `<div class="quest"><div class="q-t">${q.t}<small>보상 ${rw}</small></div>${st}</div>`;
+  }).join('');
+}
+$('quests').addEventListener('click', e => {
+  const b = e.target.closest('[data-q]'); if (!b) return;
+  const q = S.quests.list[+b.dataset.q]; if (q.claimed || q.have < q.need) return;
+  q.claimed = true; if (q.rw.energy) { syncEnergy(); S.energy = Math.min(E_MAX + 40, S.energy + q.rw.energy); } if (q.rw.money) S.money += q.rw.money;
+  ding(); toast('🎁 보상을 받았어요!'); dirty(); renderHome();
+});
+
+function thumbHTML(v, small) {
+  const g = GENRES[v.genre];
+  return `<div class="thumb" style="background-image:url(${A(g.bg)})"><img class="face" src="${A('hero_' + (v.gender || S.gender) + '_' + v.expr)}" alt=""><div class="tt">${esc(v.short)}</div>${!small && v.viralAt && now() > v.viralAt ? '<span class="viral">🔥 떡상</span>' : ''}</div>`;
+}
+function ago(t) { const m = (now() - t) / MIN; if (m < 1) return '방금 전'; if (m < 60) return Math.floor(m) + '분 전'; if (m < 1440) return Math.floor(m / 60) + '시간 전'; return Math.floor(m / 1440) + '일 전'; }
+function renderChannel() {
+  const list = $('vidList');
+  if (!S.videos.length) { list.innerHTML = '<div class="empty">아직 올린 영상이 없어요.<br>홈에서 🎬 영상 만들기를 눌러 첫 영상을 올려보세요!</div>'; return; }
+  list.innerHTML = S.videos.slice().reverse().map(v => {
+    const n = viewsOf(v), growing = now() - v.t < 24 * HOUR;
+    return `<button class="vid" data-v="${v.id}">${thumbHTML(v)}<div class="info"><div class="vt">${esc(v.title)}</div>
+      <div class="vm">조회수 ${fmt(n)}회 · ${ago(v.t)}</div><div class="vg">${growing ? '▲ 상승 중 · ' : ''}구독 +${fmt(n * v.conv)}</div></div></button>`;
+  }).join('');
+}
+$('vidList').addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) openVideo(b.dataset.v); });
+function updateChannelLive() {
+  for (const b of $('vidList').querySelectorAll('[data-v]')) {
+    const v = S.videos.find(x => x.id === b.dataset.v); if (!v) continue;
+    const n = viewsOf(v), growing = now() - v.t < 24 * HOUR;
+    b.querySelector('.vm').textContent = `조회수 ${fmt(n)}회 · ${ago(v.t)}`;
+    b.querySelector('.vg').textContent = `${growing ? '▲ 상승 중 · ' : ''}구독 +${fmt(n * v.conv)}`;
+  }
+}
+function renderShop() {
+  const rows = Object.entries(EQUIP).map(([k, e]) => {
+    const lv = S.equip[k], max = lv >= e.steps.length - 1, price = max ? 0 : e.price[lv + 1];
+    const eff = e.q ? `품질 +${Math.round(e.q * 100)}%` : `클릭률 +${Math.round(e.ctr * 100)}%`;
+    return `<div class="item"><div class="ic">${e.icon}</div><div class="mid"><div class="nm">${e.name} · ${e.steps[lv]}</div>
+      <div class="ds">${max ? '최고 단계예요' : `다음: ${e.steps[lv + 1]} (${eff})`}</div>
+      <div class="lv">${e.steps.map((_, i) => `<i class="${i <= lv ? 'on' : ''}"></i>`).join('')}</div></div>
+      <button class="buy" data-eq="${k}" ${max || S.money < price ? 'disabled' : ''}>${max ? 'MAX' : won(price)}</button></div>`;
+  }).join('');
+  const tt = totals();
+  $('shopList').innerHTML = rows + `<div class="item"><div class="ic">💰</div><div class="mid"><div class="nm">수익 창출</div><div class="ds">${S.monetizedAt ? '조회수 1회당 약 1.5원이 실시간으로 들어와요' : `구독자 1,000명이 되면 광고 수익이 시작돼요 (현재 ${fmt(tt.subs)}명)`}</div></div></div>`;
+}
+$('shopList').addEventListener('click', e => {
+  const b = e.target.closest('[data-eq]'); if (!b) return;
+  const k = b.dataset.eq, eq = EQUIP[k], lv = S.equip[k], price = eq.price[lv + 1];
+  if (S.money < price) return;
+  S.money -= price; S.equip[k]++; ding(); toast(`${eq.icon} ${eq.steps[S.equip[k]]} 장만!`); dirty(); renderShop(); renderHeader();
+});
+function renderBook() {
+  const tt = totals();
+  $('fanList').innerHTML = Object.entries(FANS).map(([k, f]) => {
+    const open = tt.subs >= f.unlock || (k === 'junseo' && S.videos.length);
+    const h = S.fans[k] || 0;
+    return `<button class="fan ${open ? '' : 'locked'}" data-fan="${k}"><img src="${A(f.img)}" alt=""><div class="nm">${open ? f.name : '???'}</div>
+      <div class="ds">${open ? f.desc : `구독자 ${fmt(f.unlock)}명에 등장`}</div>${open ? `<div class="hearts">${'♥'.repeat(Math.min(h, 6))}${'♡'.repeat(Math.max(0, 6 - h))}</div>` : ''}</button>`;
+  }).join('');
+  const read = S.letters.read;
+  $('letterList').innerHTML = read ? SNOW_LETTERS.slice(0, Math.min(read, SNOW_LETTERS.length)).map((l, i) =>
+    `<div class="combo"><span style="font-size:20px">💌</span><div style="min-width:0"><b>${i + 1}번째 편지</b><div style="font-size:12.5px;color:var(--sub);line-height:1.5">${esc(l)}</div></div></div>`).join('')
+    : '<div class="empty" style="padding:16px">첫 영상을 올리면 누군가 편지를 보내올 거예요.</div>';
+  const found = Object.keys(S.combos).length;
+  $('comboCount').textContent = `${found} / ${COMBOS.length}`;
+  $('comboList').innerHTML = COMBOS.map((c, i) => S.combos[i]
+    ? `<div class="combo"><span style="font-size:20px">${GENRES[c.g].em}${FORMATS[c.f].em}${c.s ? SPICES[c.s].em : ''}</span><div><b>${c.title}</b><div style="font-size:11.5px;color:var(--sub)">조회수 ×${c.mult}</div></div></div>`
+    : `<div class="combo locked"><span style="font-size:20px">❔</span><div>숨겨진 레시피 · ${c.s ? '카드 3장 조합' : '카드 2장 조합'}</div></div>`).join('');
+}
+$('fanList').addEventListener('click', e => {
+  const b = e.target.closest('[data-fan]'); if (!b || b.classList.contains('locked')) return;
+  const k = b.dataset.fan, f = FANS[k], h = S.fans[k] || 0;
+  const opened = [1, 3, 6].filter(x => h >= x).length;
+  openSheet(`<div style="display:flex;gap:12px;align-items:center"><img src="${A(f.img)}" alt="" style="width:72px;height:72px;border-radius:50%"><div><h2>${f.name}</h2><p class="lead" style="margin:0">${f.desc} · 하트 ${h}개</p></div></div>
+    ${f.lines.map((l, i) => i < opened ? `<div class="pred">💬 ${esc(l.replace('형/누나', S.gender === 'm' ? '형' : '누나'))}</div>` : `<div class="pred" style="color:var(--sub)">🔒 하트 ${[1, 3, 6][i]}개가 되면 열려요</div>`).join('')}
+    <div class="actions"><button class="btn" id="cls">닫기</button></div>`);
+  $('cls').onclick = closeSheet;
+});
+function renderAll() {
+  if (!S.started) return;
+  renderHeader(); renderHome(); renderChannel(); renderShop(); renderBook();
+}
+
+/* tabs */
+let curTab = 'home';
+document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', () => {
+  curTab = b.dataset.tab;
+  document.querySelectorAll('.tabbar button').forEach(x => x.classList.toggle('on', x === b));
+  document.querySelectorAll('.tab').forEach(x => x.classList.toggle('on', x.id === 'tab-' + curTab));
+  if (curTab === 'channel') { S.newVids = 0; renderChannel(); }
+  if (curTab === 'shop') renderShop();
+  if (curTab === 'book') { S.bookNew = false; renderBook(); }
+  updateBadges(); $('content').scrollTop = 0;
+}));
+function updateBadges() {
+  $('vidBadge').hidden = !S.newVids; $('vidBadge').textContent = S.newVids || '';
+  $('bookBadge').hidden = !S.bookNew; $('bookBadge').textContent = 'N';
+}
+
+/* ============ making a video ============ */
+let P = null;   // production in progress
+$('makeBtn').addEventListener('click', () => {
+  syncEnergy(); if (S.energy < 25) return;
+  P = { genre: null, format: null, spice: 'none' };
+  stepPlan();
+});
+function quality(mini) {
+  const eq = EQUIP.cam.q * S.equip.cam + EQUIP.light.q * S.equip.light + EQUIP.mic.q * S.equip.mic;
+  const ml = masteryLv(P.genre);
+  return 0.45 + 0.55 * mini + eq + 0.04 * ml;
+}
+function masteryLv(g) { return Math.min(10, Math.floor(Math.sqrt((S.mastery[g] || 0) / 2))); }
+function findCombo(g, f, s) {
+  let best = null;
+  COMBOS.forEach((c, i) => { if (c.g === g && c.f === f && (!c.s || c.s === s)) { if (!best || (c.s && !best.c.s)) best = { c, i }; } });
+  return best;
+}
+function stepPlan() {
+  const tr = trendFor(S.day), tt = totals(), spiceOpen = tt.subs >= 100;
+  const gCards = Object.entries(GENRES).map(([k, g]) => `<button class="card ${P.genre === k ? 'sel' : ''}" data-g="${k}">${tr.g === k ? '<span class="tag">트렌드</span>' : ''}<span class="em">${g.em}</span><span class="nm">${g.name}</span><span class="ds">숙련 Lv.${masteryLv(k)}</span></button>`).join('');
+  const fCards = Object.entries(FORMATS).map(([k, f]) => `<button class="card ${P.format === k ? 'sel' : ''}" data-f="${k}">${tr.f === k ? '<span class="tag">트렌드</span>' : ''}<span class="em">${f.em}</span><span class="nm">${f.name}</span></button>`).join('');
+  const sCards = Object.entries(SPICES).map(([k, s]) => `<button class="card ${P.spice === k ? 'sel' : ''} ${spiceOpen || k === 'none' ? '' : 'locked'}" data-s="${k}" ${spiceOpen || k === 'none' ? '' : 'disabled'}><span class="em">${s.em}</span><span class="nm">${s.name}</span></button>`).join('');
+  let pred = '장르와 포맷을 골라주세요.';
+  if (P.genre && P.format) {
+    const cb = findCombo(P.genre, P.format, P.spice);
+    const tm = (tr.g === P.genre ? 1.5 : 1) * (tr.f === P.format ? 1.3 : 1);
+    pred = `${tm > 1 ? `🔥 트렌드 보너스 ×${tm.toFixed(2)}<br>` : ''}${cb ? (S.combos[cb.i] ? `<span class="combo-hit">📖 레시피: ${cb.c.title} (×${cb.c.mult})</span>` : '<span class="combo-hit">✨ 왠지 좋은 예감이 드는 조합이에요…</span>') : '평범한 조합이에요.'}`;
+  }
+  openSheet(`<div class="steps"><i class="on"></i><i></i><i></i><i></i></div>
+    <h2>1. 기획</h2><p class="lead">카드를 조합해서 영상 소재를 정해요. 숨겨진 레시피를 찾으면 조회수가 크게 올라요.</p>
+    <div class="sect-t">장르</div><div class="cards">${gCards}</div>
+    <div class="sect-t">포맷</div><div class="cards">${fCards}</div>
+    <div class="sect-t">양념 ${spiceOpen ? '' : '<small>구독자 100명에 열려요</small>'}</div><div class="cards" style="grid-template-columns:repeat(4,1fr)">${sCards}</div>
+    <div class="pred">${pred}</div>
+    <div class="actions"><button class="btn ghost" id="cancel">취소</button><button class="btn" id="go" ${P.genre && P.format ? '' : 'disabled'}>촬영 시작 ⚡25</button></div>`);
+  $('sheet').onclick = e => {
+    const c = e.target.closest('.card'); if (!c || c.disabled) return;
+    if (c.dataset.g) P.genre = c.dataset.g; if (c.dataset.f) P.format = c.dataset.f; if (c.dataset.s) P.spice = c.dataset.s;
+    beep(520, .04); const st = $('sheet').scrollTop; stepPlan(); $('sheet').scrollTop = st;
+  };
+  $('cancel').onclick = () => { $('sheet').onclick = null; closeSheet(); };
+  $('go').onclick = e => { e.stopPropagation(); if (!useEnergy(25)) return; $('sheet').onclick = null; renderHeader(); stepShoot(); };
+}
+
+/* --- shooting minigames --- */
+function stepShoot() {
+  $('modal').dataset.lock = '1';
+  const g = GENRES[P.genre];
+  const header = `<div class="steps"><i class="on"></i><i class="on"></i><i></i><i></i></div><h2>2. 촬영 · ${g.em} ${g.name}</h2>`;
+  if (g.mg === 'timing') mgTiming(header); else if (g.mg === 'tap') mgTap(header); else mgSnap(header);
+}
+function finishShoot(score, header) {
+  P.mini = clamp(score, 0, 1);
+  const stars = P.mini > .85 ? 3 : P.mini > .55 ? 2 : 1;
+  if (stars === 3) questProgress('perfect');
+  P.stars = stars;
+  openSheet(`${header}<div class="mg"><div class="result"><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
+    <div class="score">${['아쉬운 컷…', '괜찮은 컷!', '완벽한 컷!!'][stars - 1]}</div><div class="hint">촬영 점수 ${Math.round(P.mini * 100)}점</div></div></div>
+    <div class="actions"><button class="btn" id="next">편집하러 가기 ▶</button></div>`);
+  stars === 3 ? ding() : beep(500, .12);
+  $('next').onclick = stepEdit;
+}
+function mgTiming(header) {
+  // tap when the needle is inside the zone, 3 times
+  let round = 0, total = 0, x = 0, dir = 1, speed = 1.25, raf, last = performance.now();
+  const zones = [];
+  const draw = () => {
+    const z = zones[round] || zones[zones.length - 1];
+    openSheet(`${header}<p class="lead">바늘이 초록 칸에 들어왔을 때 탭! 노란 칸은 완벽 (${round + 1}/3)</p>
+      <div class="mg"><div class="meter" id="meter"><div class="zone" style="left:${z.a}%;width:${z.w}%"></div><div class="zone perfect" style="left:${z.a + z.w * .35}%;width:${z.w * .3}%"></div><div class="needle" id="needle"></div></div>
+      <div class="hint">${P.genre === 'cook' ? '🍳 불 조절 타이밍!' : '🍜 한입 크게 먹는 타이밍!'}</div><button class="tap-btn" id="tap">지금!</button></div>`);
+    $('tap').onclick = hit;
+  };
+  for (let i = 0; i < 3; i++) { const w = 22 - i * 3; zones.push({ a: rnd(8, 92 - w), w }); }
+  const loop = t => {
+    const dt = (t - last) / 1000; last = t;
+    x += dir * speed * dt * 100; if (x > 100) { x = 100; dir = -1; } if (x < 0) { x = 0; dir = 1; }
+    const n = $('needle'); if (n) n.style.left = `calc(${x}% - 2px)`;
+    raf = requestAnimationFrame(loop);
+  };
+  const hit = () => {
+    const z = zones[round], c = z.a + z.w / 2, d = Math.abs(x - c);
+    const sc = d < z.w * .15 ? 1 : d < z.w / 2 ? .7 : Math.max(0, .35 - (d - z.w / 2) / 60);
+    total += sc; beep(sc >= 1 ? 1200 : sc > .5 ? 800 : 300, .08);
+    round++; speed += .35;
+    if (round >= 3) { cancelAnimationFrame(raf); finishShoot(total / 3, header); return; }
+    draw();
+  };
+  draw(); raf = requestAnimationFrame(loop);
+}
+function mgTap(header) {
+  // tap the glowing targets for 7 seconds
+  let hits = 0, spawned = 0, left = 7, timer, spawnT;
+  openSheet(`${header}<p class="lead">반짝이는 하이라이트 장면을 최대한 많이 탭하세요!</p>
+    <div class="mg"><div class="live-top" style="width:100%"><span id="tl">⏱ 7.0초</span><span class="score" id="hc">0</span></div><div class="mg-arena" id="arena"></div></div>`);
+  const arena = $('arena');
+  const spawn = () => {
+    if (left <= 0) return;
+    spawned++;
+    const b = document.createElement('button'); b.className = 'target'; b.textContent = P.genre === 'game' ? '💥' : '✨';
+    b.style.left = rnd(3, 79) + '%'; b.style.top = rnd(3, 79) + '%'; b.setAttribute('aria-label', '하이라이트');
+    b.onpointerdown = e => { e.preventDefault(); hits++; $('hc').textContent = hits; beep(700 + hits * 30, .05); b.remove(); };
+    arena.appendChild(b); setTimeout(() => b.remove(), 900);
+    spawnT = setTimeout(spawn, rnd(380, 620));
+  };
+  spawn();
+  timer = setInterval(() => {
+    left -= .1; const tl = $('tl'); if (tl) tl.textContent = `⏱ ${Math.max(0, left).toFixed(1)}초`;
+    if (left <= 0) { clearInterval(timer); clearTimeout(spawnT); finishShoot(hits / Math.max(8, spawned * .85), header); }
+  }, 100);
+}
+function mgSnap(header) {
+  // 5 rounds: a ⭐ moment flashes in one of 9 cells; tap it quickly
+  let round = 0, score = 0, star = -1, shownAt = 0, to;
+  const icons = P.genre === 'fitness' ? ['🏋️', '🤸', '🧘', '🚴', '🏃', '⛹️', '🤾', '🧗', '🏊'] : ['☕', '🌸', '🚌', '🍰', '🐶', '🌇', '📚', '🛍', '🎈'];
+  openSheet(`${header}<p class="lead">⭐ 순간이 나타나면 바로 탭! (5번)</p>
+    <div class="mg"><div class="score" id="rd">1 / 5</div><div class="grid9" id="g9">${icons.map((ic, i) => `<button class="cell" data-c="${i}">${ic}</button>`).join('')}</div><div class="hint" id="fb">준비…</div></div>`);
+  const cells = [...$('g9').children];
+  const next = () => {
+    cells.forEach(c => c.classList.remove('star'));
+    if (round >= 5) { finishShoot(score / 5, header); return; }
+    $('rd').textContent = `${round + 1} / 5`;
+    to = setTimeout(() => {
+      star = Math.floor(Math.random() * 9); cells[star].classList.add('star'); shownAt = performance.now();
+      to = setTimeout(() => { $('fb').textContent = '놓쳤다!'; beep(250, .1); star = -1; round++; next(); }, 1100);
+    }, rnd(500, 1300));
+  };
+  $('g9').onclick = e => {
+    const c = e.target.closest('.cell'); if (!c) return;
+    if (star < 0) return;
+    clearTimeout(to);
+    if (+c.dataset.c === star) { const dt = performance.now() - shownAt; const sc = clamp(1.15 - dt / 1100, .4, 1); score += sc; $('fb').textContent = sc > .8 ? '완벽한 순간!' : '좋아!'; beep(900, .06); }
+    else { $('fb').textContent = '앗, 거기가 아니야!'; beep(250, .1); }
+    star = -1; round++; next();
+  };
+  next();
+}
+
+/* --- editing --- */
+function stepEdit() {
+  $('modal').dataset.lock = '1';
+  const cb = findCombo(P.genre, P.format, P.spice);
+  const base = cb ? cb.c.title : `${GENRES[P.genre].name} ${FORMATS[P.format].word}${P.spice !== 'none' ? ' (feat. ' + SPICES[P.spice].name.replace(' 출연', '') + ')' : ''}`;
+  P.base = base; P.cb = cb;
+  P.expr = P.expr || 'smile'; P.hook = P.hook || 'curious';
+  const short = base.length > 12 ? base.slice(0, 12) + '…' : base;
+  const opts = Object.entries(EXPRS).map(([k, x]) => `<button class="opt ${P.expr === k ? 'sel' : ''}" data-x="${k}">${thumbHTML({ genre: P.genre, expr: k, short, gender: S.gender }, true)}${x.name}</button>`).join('');
+  const hooks = Object.entries(HOOKS).map(([k, h]) => `<button class="hook ${P.hook === k ? 'sel' : ''}" data-h="${k}">"${esc(base)} | ${h.ex}"<small>${h.name} · ${k === 'bait' ? '클릭은 많지만 구독 전환·신뢰도 ↓' : k === 'honest' ? '구독 전환·신뢰도 ↑' : '무난하게 클릭 ↑'}</small></button>`).join('');
+  openSheet(`<div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></div>
+    <h2>3. 편집</h2><p class="lead">썸네일 표정과 제목을 골라요. 장르마다 잘 먹히는 표정이 달라요.</p>
+    <div class="sect-t">썸네일</div><div class="thumbs">${opts}</div>
+    <div class="sect-t">제목</div><div class="hooks">${hooks}</div>
+    <div class="actions"><button class="btn" id="next">업로드 준비 ▶</button></div>`);
+  $('sheet').onclick = e => {
+    const o = e.target.closest('[data-x]'), h = e.target.closest('[data-h]');
+    if (o) P.expr = o.dataset.x; if (h) P.hook = h.dataset.h;
+    if (o || h) { beep(520, .04); const st = $('sheet').scrollTop; stepEdit(); $('sheet').scrollTop = st; }
+  };
+  $('next').onclick = e => { e.stopPropagation(); $('sheet').onclick = null; stepUpload(); };
+}
+
+/* --- upload --- */
+function stepUpload() {
+  const tr = trendFor(S.day), tt = totals();
+  const Q = quality(P.mini);
+  const trendM = (tr.g === P.genre ? 1.5 : 1) * (tr.f === P.format ? 1.3 : 1);
+  const comboM = P.cb ? P.cb.c.mult : 1;
+  const exprM = EXPRS[P.expr].good.includes(P.genre) ? 1.15 : 0.92;
+  const ctr = exprM * HOOKS[P.hook].ctr * (1 + EQUIP.edit.ctr * S.equip.edit);
+  const hr = new Date(now()).getHours(), prime = hr >= 18 && hr <= 23;
+  const timeM = prime ? 1.15 : (hr >= 1 && hr <= 6 ? 0.85 : 1);
+  const reach = 260 + tt.subs * 2.2;
+  let Pv = reach * Q * trendM * comboM * ctr * timeM * rnd(.88, 1.12);
+  if (!S.videos.length) Pv = Math.max(Pv, 420);   // first video always finds a little audience
+  const conv = clamp(0.055 * Q * (S.trust / 70) * HOOKS[P.hook].conv, 0.012, 0.12);
+  const est = Math.round(Pv * conv);
+  const starsQ = Q > 1.25 ? 5 : Q > 1.05 ? 4 : Q > .85 ? 3 : Q > .65 ? 2 : 1;
+  P.calc = { Pv, conv, Q, trendM, comboM };
+  const title = `${P.base} | ${HOOKS[P.hook].ex}`;
+  P.title = title;
+  openSheet(`<div class="steps"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></div>
+    <h2>4. 업로드</h2>
+    <div class="preview">${thumbHTML({ genre: P.genre, expr: P.expr, short: P.base.length > 12 ? P.base.slice(0, 12) + '…' : P.base, gender: S.gender }, true)}<div style="min-width:0;font-weight:800;font-size:13.5px;line-height:1.4">${esc(title)}</div></div>
+    <div class="pred">품질 ${'★'.repeat(starsQ)}${'☆'.repeat(5 - starsQ)}<br>
+      ${trendM > 1 ? `🔥 트렌드 ×${trendM.toFixed(2)}<br>` : ''}${P.cb ? `📖 레시피 ×${comboM}<br>` : ''}${prime ? '🌙 저녁 황금 시간대 ×1.15<br>' : timeM < 1 ? '😴 새벽 시간대라 시청자가 적어요<br>' : ''}
+      예상: 24시간 동안 조회수 약 <b>${fmt(Pv)}</b>회 · 구독 약 <b>+${fmt(est)}</b>명</div>
+    <div class="actions"><button class="btn" id="up">🚀 업로드!</button></div>`);
+  $('up').onclick = doUpload;
+}
+function doUpload() {
+  delete $('modal').dataset.lock;
+  const t = now(), c = P.calc;
+  const tr = trendFor(S.day);
+  let viralChance = 0.07 + (c.trendM > 1 ? 0.08 : 0) + (P.cb ? 0.05 : 0) + (P.mini > .85 ? 0.04 : 0);
+  const viral = Math.random() < viralChance;
+  const v = {
+    id: 'v' + t.toString(36), t, title: P.title, short: P.base.length > 12 ? P.base.slice(0, 12) + '…' : P.base,
+    genre: P.genre, format: P.format, spice: P.spice, expr: P.expr, hook: P.hook, gender: S.gender,
+    P: Math.round(c.Pv), conv: c.conv, viralAt: viral ? t + rnd(1.5, 6) * HOUR : 0, viralMult: viral ? rnd(3, 8) : 1, viralMultT: 1,
+    lastViews: 0, notified: false, seed: Math.floor(Math.random() * 1e9),
+  };
+  v.viralMultT = viral ? v.viralMult : 1;
+  S.videos.push(v);
+  S.mastery[P.genre] = (S.mastery[P.genre] || 0) + 1;
+  S.trust = clamp(S.trust + HOOKS[P.hook].trust, 20, 100);
+  questProgress('up2');
+  if (tr.g === P.genre || tr.f === P.format) questProgress('trend');
+  let newCombo = null;
+  if (P.cb) { questProgress('combo'); if (!S.combos[P.cb.i]) { S.combos[P.cb.i] = t; newCombo = P.cb.c; S.bookNew = true; } }
+  S.newVids = (S.newVids || 0) + 1;
+  closeSheet(); dirty(); save();
+  ding(); toast('🚀 업로드 완료! 조회수는 지금부터 실제 시간으로 올라가요');
+  if (newCombo) setTimeout(() => { toast(`📖 새 레시피 발견: ${newCombo.title}!`, 3500); beep(1046, .2); }, 900);
+  updateBadges(); renderAll();
+  // the very first video: meet 첫눈 a little later
+  if (S.videos.length === 1) setTimeout(firstSub, 9000);
+}
+function firstSub() {
+  if (S.seenSnow) return;
+  S.seenSnow = true; S.letters.availDay = S.day; S.subsBonus += 1;
+  playStory([
+    { bg: 'room1', who: heroImg('wow'), spk: '나', txt: '어? 알림이 왔다.\n…구독자 1명?!' },
+    { bg: 'room1', spk: '첫눈 (구독자 1호)', txt: '"계속 올려주세요. 기다릴게요."\n\n프로필 사진도 없는 계정. 닉네임은 \'첫눈\'.' },
+    { bg: 'room1', who: heroImg('smile'), spk: '나', txt: '누군지는 모르지만… 고마워요.\n내일도 올려볼게요.', btn: '좋아!' },
+  ], () => { dirty(); renderAll(); });
+}
+
+/* ============ video detail & comments ============ */
+function commentsFor(v) {
+  const n = viewsOf(v), r = seeded(v.seed);
+  const count = Math.min(14, Math.floor(Math.log2(n + 1) * 1.6));
+  const tt = totals();
+  const list = [];
+  if (S.seenSnow) list.push({ id: v.id + '-snow', who: '첫눈', snow: true, txt: pick(['오늘도 1등으로 봤어요.', '잘 봤어요. 계속 기다릴게요.', '좋네요. 천천히 가요.', '오늘 표정이 제일 좋았어요.']) });
+  const fanKeys = Object.keys(FANS).filter(k => tt.subs >= FANS[k].unlock || (k === 'junseo'));
+  for (let i = 0; i < count; i++) {
+    const roll = r();
+    if (roll < .28 && fanKeys.length) {
+      const k = fanKeys[Math.floor(r() * fanKeys.length)];
+      if (list.some(c => c.fan === k)) continue;
+      const pool = { junseo: ['1등!! ㅋㅋㅋ', '이거 친구들한테 보여줄게요', '다음엔 게임 해주세요!!'], night: ['근무 끝나고 보는 중이에요', '오늘도 위로받고 가요', '새벽에 보기 딱 좋아요'], fact: ['편집 템포 조금만 더 빠르게.', '이번 건 인정.', '썸네일 글씨 키우세요.'], momo: ['자막 고마워요!!', '한국어 공부 중이에요 ㅎㅎ', '이 가게 어디예요?'] }[k];
+      list.push({ id: v.id + '-f' + i, fan: k, who: FANS[k].name, txt: pool[Math.floor(r() * pool.length)] });
+    } else {
+      const pool = (v.hook === 'bait' && r() < .45) ? CMT.bait : r() < .5 ? CMT[v.genre] : CMT.any;
+      list.push({ id: v.id + '-' + i, who: NICKS[Math.floor(r() * NICKS.length)], txt: pool[Math.floor(r() * pool.length)] });
+    }
+  }
+  return list;
+}
+let detailTimer = null;
+function openVideo(id) {
+  const v = S.videos.find(x => x.id === id); if (!v) return;
+  const draw = () => {
+    const n = viewsOf(v), cm = commentsFor(v);
+    const h = (now() - v.t) / HOUR;
+    openSheet(`${thumbHTML(v).replace('class="thumb"', 'class="thumb" style="width:100%;background-image:url(' + A(GENRES[v.genre].bg) + ')"')}
+      <h2 style="font-size:18px;font-family:var(--body);font-weight:800">${esc(v.title)}</h2>
+      <div class="kpis"><div class="kpi"><b>${fmt(n)}</b><span>조회수</span></div><div class="kpi"><b>+${fmt(n * v.conv)}</b><span>구독 증가</span></div><div class="kpi"><b>${S.monetizedAt ? won(Math.max(0, n - (v.monoBase || 0)) * 1.5) : '-'}</b><span>수익</span></div></div>
+      <canvas class="graph" id="graph"></canvas>
+      <div style="font-size:12px;color:var(--sub)">${h < 24 ? `업로드 ${ago(v.t)} · 24시간 동안 계속 올라요` : '안정기 · 앞으로 한 달간 꾸준히 조금씩 올라요'}${v.viralAt && now() < v.viralAt ? '' : v.viralAt ? ' · 🔥 알고리즘 추천을 탔어요!' : ''}</div>
+      <div class="sect-t">💬 댓글 ${cm.length}개 <small>하트로 팬과 친해져요</small></div>
+      <div style="display:flex;flex-direction:column;gap:11px" id="cmts">${cm.length ? cm.map(c => `<div class="cmt"><div class="av" style="${c.fan ? `background-image:url(${A(FANS[c.fan].img)})` : ''}">${c.fan ? '' : c.snow ? '❄️' : '🙂'}</div>
+        <div class="bd"><div class="who ${c.fan ? 'named' : ''} ${c.snow ? 'snow' : ''}">${esc(c.who)}</div>${esc(c.txt)}</div>
+        <button class="heart ${S.hearted[c.id] ? 'on' : ''}" data-c="${c.id}" data-fan="${c.fan || ''}" aria-label="하트">❤️</button></div>`).join('') : '<div class="empty" style="padding:14px">아직 댓글이 없어요. 조회수가 오르면 달려요!</div>'}</div>
+      <div class="actions"><button class="btn" id="cls">닫기</button></div>`);
+    drawGraph($('graph'), v);
+    $('cls').onclick = () => { clearInterval(detailTimer); closeSheet(); };
+    $('cmts').onclick = e => {
+      const b = e.target.closest('.heart'); if (!b || S.hearted[b.dataset.c]) return;
+      S.hearted[b.dataset.c] = 1; b.classList.add('on'); beep(1000, .06); questProgress('heart');
+      const k = b.dataset.fan;
+      if (k) {
+        S.fans[k] = (S.fans[k] || 0) + 1;
+        if ([1, 3, 6].includes(S.fans[k])) { S.bookNew = true; updateBadges(); toast(`💗 ${FANS[k].name}의 이야기가 열렸어요! (도감)`, 3200); }
+        else toast(`💗 ${FANS[k].name}와(과) 조금 더 친해졌어요`);
+      }
+      dirty();
+    };
+  };
+  draw();
+  clearInterval(detailTimer);
+  detailTimer = setInterval(() => { if ($('modal').hidden) { clearInterval(detailTimer); return; } const st = $('sheet').scrollTop; const g = $('graph'); if (!g) return; drawGraph(g, v); const k = $('sheet').querySelector('.kpi b'); if (k) k.textContent = fmt(viewsOf(v)); }, 1000);
+}
+function drawGraph(cv, v) {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+  cv.width = w * dpr; cv.height = h * dpr; const c = cv.getContext('2d'); c.scale(dpr, dpr);
+  const span = Math.max(24 * HOUR, Math.min(now() - v.t, 72 * HOUR)), end = v.t + span;
+  const maxV = Math.max(10, viewsOf(v, end) * 1.05);
+  c.strokeStyle = '#e3ddf7'; c.lineWidth = 1;
+  for (let i = 1; i < 4; i++) { c.beginPath(); c.moveTo(0, h * i / 4); c.lineTo(w, h * i / 4); c.stroke(); }
+  const pts = []; for (let i = 0; i <= 60; i++) { const t = v.t + span * i / 60; pts.push([w * i / 60, h - 8 - (h - 16) * viewsOf(v, t) / maxV, t]); }
+  const nowX = w * clamp((now() - v.t) / span, 0, 1);
+  c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y));
+  c.setLineDash([4, 4]); c.strokeStyle = '#c9bff5'; c.lineWidth = 2; c.stroke(); c.setLineDash([]);
+  c.save(); c.beginPath(); c.rect(0, 0, nowX, h); c.clip();
+  const gr = c.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, 'rgba(255,90,122,.35)'); gr.addColorStop(1, 'rgba(255,90,122,0)');
+  c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.lineTo(w, h); c.lineTo(0, h); c.fillStyle = gr; c.fill();
+  c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); c.strokeStyle = '#ff5a7a'; c.lineWidth = 2.5; c.stroke(); c.restore();
+  const ny = h - 8 - (h - 16) * viewsOf(v) / maxV;
+  c.fillStyle = '#ff5a7a'; c.beginPath(); c.arc(nowX, ny, 4.5, 0, 7); c.fill();
+  c.fillStyle = '#6c6590'; c.font = '11px Noto Sans KR, sans-serif'; c.fillText('지금', Math.min(w - 26, nowX + 6), Math.max(12, ny - 6));
+}
+
+/* ============ live broadcast ============ */
+$('liveTile').addEventListener('click', () => {
+  const tt = totals(), w = liveWindow(), key = S.day + '-' + w;
+  if (tt.subs < 100) { toast('🔒 구독자 100명이 되면 라이브를 열 수 있어요'); return; }
+  if (!w) { toast('📅 라이브는 점심(11:30~13:30)과 저녁(19:00~23:30)에만 열려요'); return; }
+  if (S.live[key]) { toast('이번 시간대 방송은 이미 했어요. ' + nextLiveText()); return; }
+  if (!useEnergy(15)) { toast('⚡ 에너지가 부족해요'); return; }
+  S.live[key] = true; dirty(); runLive();
+});
+function runLive() {
+  $('modal').dataset.lock = '1';
+  const tt = totals();
+  let left = 25, answered = 0, bans = 0, missedTrolls = 0, dona = 0, y = 0;
+  const viewers = Math.max(12, Math.floor(tt.subs * rnd(.04, .07)));
+  openSheet(`<h2>🔴 라이브 방송</h2><p class="lead">파란 질문에 답하고(탭), 빨간 악플은 탭해서 차단하세요. 💰 후원은 자동으로 들어와요.</p>
+    <div class="live-top"><span class="lv-badge">LIVE</span><span>👀 ${fmt(viewers)}명 시청 중</span><span id="lt">25초</span></div>
+    <div class="live-arena" id="la"></div><div class="pred" id="lsum">답변 0 · 차단 0 · 후원 0원</div>`);
+  const la = $('la');
+  const types = [['q', 0.38], ['p', 0.3], ['t', 0.2], ['d', 0.12]];
+  const texts = {
+    q: ['카메라 뭐 쓰세요?', '다음 영상 주제 뭐예요?', '몇 살이에요?', '구독자 몇 명 목표예요?', '좋아하는 음식 뭐예요?', '편집 혼자 해요?'],
+    p: ['오늘도 재밌어요 ㅋㅋ', '목소리 좋다', '처음 와봐요!', 'ㅋㅋㅋㅋㅋ', '하이하이~'],
+    t: ['노잼', '구독 취소함 ㅋ', '이걸 왜 봄?', '광고 아님?'],
+    d: ['💰 1,000원 후원! 힘내요', '💰 5,000원 후원! 치킨 사드세요', '💰 2,000원 후원! 응원해요'],
+  };
+  const spawn = () => {
+    let r = Math.random(), tp = 'q'; for (const [k, p] of types) { if ((r -= p) <= 0) { tp = k; break; } }
+    const b = document.createElement('button'); b.className = 'live-msg ' + tp;
+    const nick = pick(NICKS); b.innerHTML = `<b>${nick}</b> ${esc(pick(texts[tp]))}`;
+    b.style.top = '100%'; la.appendChild(b);
+    let top = 100;
+    const mv = setInterval(() => { top -= 1.1; b.style.top = top + '%'; if (top < -18) { clearInterval(mv); if (tp === 't' && !b.dataset.done) missedTrolls++; b.remove(); } }, 50);
+    if (tp === 'd') { const m = [1000, 5000, 2000][texts.d.findIndex(x => b.textContent.includes(x))] || 1000; dona += m; beep(1500, .08); upd(); }
+    b.onclick = () => {
+      if (b.dataset.done) return; b.dataset.done = 1;
+      if (tp === 'q') { answered++; b.classList.add('done'); beep(900, .05); }
+      else if (tp === 't') { bans++; b.classList.add('done'); b.innerHTML = '🚫 차단됨'; beep(300, .06); }
+      else if (tp === 'p') { b.classList.add('done'); beep(700, .04); }
+      upd();
+    };
+  };
+  const upd = () => { const s = $('lsum'); if (s) s.textContent = `답변 ${answered} · 차단 ${bans} · 후원 ${won(dona)}`; };
+  const sp = setInterval(spawn, 750); spawn();
+  const tm = setInterval(() => {
+    left--; const lt = $('lt'); if (lt) lt.textContent = left + '초';
+    if (left <= 0) {
+      clearInterval(sp); clearInterval(tm);
+      const gain = Math.round((answered * 2.5 + bans * 1.5) * (1 + tt.subs / 400));
+      S.subsBonus += gain; S.money += dona; S.trust = clamp(S.trust + bans * .5 - missedTrolls, 20, 100);
+      questProgress('live'); dirty(); save();
+      openSheet(`<h2>방송 종료!</h2><div class="pred">💬 질문 답변 ${answered}개 · 🚫 악플 차단 ${bans}개${missedTrolls ? ` · 놓친 악플 ${missedTrolls}개` : ''}<br>
+        <b style="font-size:16px">구독자 +${fmt(gain)}명 · 후원 ${won(dona)}</b></div>
+        <div class="actions"><button class="btn" id="cls">좋아!</button></div>`);
+      delete $('modal').dataset.lock; ding();
+      $('cls').onclick = () => { closeSheet(); renderAll(); };
+    }
+  }, 1000);
+}
+
+/* ============ drinks, letters, settings ============ */
+$('drinkTile').addEventListener('click', () => {
+  if (S.drinks.day !== S.day) S.drinks = { day: S.day, n: 0 };
+  if (S.drinks.n >= 3) { toast('오늘은 더 마시면 몸에 안 좋아요 😵'); return; }
+  if (S.money < 5000) { toast('💸 잔고가 부족해요'); return; }
+  syncEnergy(); S.money -= 5000; S.energy = Math.min(E_MAX + 40, S.energy + 30); S.drinks.n++;
+  beep(600, .1, 'sine', .05, 400); toast('🥤 꿀꺽! ⚡+30'); dirty(); renderAll();
+});
+$('letterBtn').addEventListener('click', () => {
+  const i = S.letters.read, txt = SNOW_LETTERS[Math.min(i, SNOW_LETTERS.length - 1)];
+  S.letters.read++; S.letters.lastRead = S.day; S.bookNew = true; dirty();
+  playStory([{ bg: tt0().subs >= 1000 ? 'room2' : 'room1', spk: `❄️ 첫눈의 편지 #${i + 1}`, txt, btn: '편지 접기' }], () => { renderAll(); updateBadges(); });
+});
+const tt0 = () => totals();
+$('setBtn').addEventListener('click', () => {
+  openSheet(`<h2>설정</h2>
+    <div class="item"><div class="ic">⏩</div><div class="mid"><div class="nm">시간 가속 (테스트용)</div><div class="ds">켜면 게임 속 시간이 60배 빨리 흘러요. 1분 = 1시간. 성장 흐름을 빨리 확인할 때 쓰세요.</div></div><button class="buy" id="warp">${S.warp ? '끄기' : '켜기'}</button></div>
+    <div class="item"><div class="ic">💾</div><div class="mid"><div class="nm">저장</div><div class="ds">${db ? '클라우드에 자동 저장 중 (내 계정 전용)' : '이 브라우저에 자동 저장 중'}</div></div></div>
+    <div class="item"><div class="ic">🗑</div><div class="mid"><div class="nm">처음부터 다시 하기</div><div class="ds">진행 상황이 모두 지워져요.</div></div><button class="buy" id="reset" style="background:#ffd5dd">초기화</button></div>
+    <div class="actions"><button class="btn" id="cls">닫기</button></div>`);
+  $('warp').onclick = () => { S.warp = !S.warp; dirty(); closeSheet(); toast(S.warp ? '⏩ 시간 가속 ON (60배)' : '⏸ 시간 가속 OFF'); };
+  $('reset').onclick = () => {
+    $('reset').textContent = '정말요?'; $('reset').onclick = async () => {
+      S = fresh(); try { localStorage.removeItem(LS_KEY); } catch (e) {}
+      if (db && uid) { try { await db.doc('data/users/' + uid + '/save').delete(); } catch (e) {} }
+      closeSheet(); boot();
+    };
+  };
+  $('cls').onclick = closeSheet;
+});
+
+/* ============ milestones, monetization, viral alerts ============ */
+function milestoneCheck(tt) {
+  if (!S.started || !$('story').hidden) return;
+  const ci = chapterIdx(tt.subs);
+  if (ci > S.chapterSeen) {
+    S.chapterSeen = ci; dirty();
+    if (ci === 1) playStory([
+      { bg: 'room1', chap: '챕터 1 클리어!', who: heroImg('wow'), spk: '나', txt: '구독자 100명…!\n100명이 내 영상을 기다린다니, 믿기지가 않아.' },
+      { bg: 'room1', chap: '챕터 2 · 첫 알고리즘', txt: '🔓 라이브 방송이 열렸어요! (점심·저녁 시간)\n🔓 양념 카드가 열렸어요: 엄마 출연, 고양이, 실패 편집\n\n다음 목표: 구독자 1,000명 — 수익 창출!', btn: '계속하기' },
+    ], renderAll);
+    else if (ci === 2) {
+      startMonetization();
+      playStory([
+        { bg: 'room2', chap: '챕터 2 클리어!', who: heroImg('wow'), spk: '나', txt: '구독자 1,000명!!\n수익 창출 신청이… 승인됐다!' },
+        { bg: 'room2', spk: '나', who: heroImg('smile'), txt: '첫 수익으로 방도 조금 꾸며봤다.\n이제 반지하가 아니라, 내 스튜디오야.' },
+        { bg: 'room2', chap: '챕터 3 · 수익화', txt: '💰 이제 조회수가 오를 때마다 수익이 실시간으로 들어와요.\n번 돈으로 장비를 바꾸면 영상이 더 좋아져요.\n\n다음 목표: 구독자 1만 명', btn: '계속하기' },
+      ], renderAll);
+    } else if (ci === 3) playStory([
+      { bg: 'room2', chap: '챕터 3 클리어!', who: heroImg('wow'), spk: '나', txt: '구독자 1만 명.\n…그런데 같은 날 채널을 연 \'하이퍼\'는 벌써 10만이래.' },
+      { bg: 'room2', spk: '첫눈', txt: '"숫자 말고 사람을 봐요. 당신 속도대로 가면 돼요."' },
+      { bg: 'room2', chap: '챕터 4 · 라이벌 — 다음 업데이트에서 계속', txt: '프로토타입은 여기까지예요!\n계속 영상을 올리며 채널을 키울 수 있어요.', btn: '계속 키우기' },
+    ], renderAll);
+  }
+}
+function startMonetization() {
+  if (S.monetizedAt) return;
+  S.monetizedAt = now(); for (const v of S.videos) v.monoBase = viewsOf(v); dirty();
+}
+function moneyTick() {
+  if (!S.monetizedAt) return 0;
+  let earned = 0;
+  for (const v of S.videos) {
+    const n = viewsOf(v), base = Math.max(v.monoBase || 0, v.lastMoneyViews || 0);
+    if (n > base) { earned += (n - base) * 1.5; v.lastMoneyViews = n; }
+  }
+  S.money += Math.floor(earned);
+  return earned;
+}
+function viralCheck() {
+  for (const v of S.videos) if (v.viralAt && !v.notified && now() > v.viralAt) {
+    v.notified = true; dirty();
+    toast(`🔥 "${v.short}" 영상이 알고리즘 추천을 탔어요!`, 4000); beep(784, .12); setTimeout(() => beep(1046, .2), 120);
+  }
+}
+
+/* ============ away summary ============ */
+function awaySummary(prev) {
+  const away = Date.now() - (prev.lastSeenReal || 0);
+  if (!prev.lastSeenReal || away < 10 * MIN) return;
+  const before = totalsAt(prev.lastSeen), after = totals();
+  const dSubs = after.subs - before.subs, dViews = after.views - before.views;
+  if (dViews < 1) return;
+  const hrs = away / HOUR;
+  openSheet(`<h2>👋 다녀왔어요!</h2><p class="lead">${hrs >= 1 ? Math.floor(hrs) + '시간' : Math.floor(away / MIN) + '분'} 동안 영상들이 일했어요.</p>
+    <div class="kpis"><div class="kpi"><b>+${fmt(dViews)}</b><span>조회수</span></div><div class="kpi"><b style="color:var(--pop)">+${fmt(dSubs)}</b><span>구독자</span></div><div class="kpi"><b>⚡${S.energy}</b><span>에너지</span></div></div>
+    ${S.videos.filter(v => v.viralAt && v.viralAt > prev.lastSeen && v.viralAt < now()).map(v => `<div class="pred">🔥 "${esc(v.short)}" 영상이 자는 사이 알고리즘 추천을 탔어요!</div>`).join('')}
+    <div class="actions"><button class="btn" id="cls">좋아요!</button></div>`);
+  $('cls').onclick = closeSheet; ding();
+}
+function totalsAt(t) { return totals(t); }
+
+/* ============ main loop ============ */
+let lastTick = Date.now();
+function tick() {
+  const real = Date.now(), dt = real - lastTick; lastTick = real;
+  if (S && S.warp) S.warpOffset += dt * 59;
+  if (!S || !S.started) return;
+  const d = dayKey(); if (d !== S.day) { dailyCheck(); renderAll(); }
+  const tt = totals();
+  if (tt.subs >= 1000 && !S.monetizedAt) startMonetization();
+  moneyTick(); viralCheck(); milestoneCheck(tt);
+  renderHeader(tt);
+  if (curTab === 'home') renderHomeLight(tt);
+  if (curTab === 'channel') updateChannelLive();
+  S.lastSeenReal = real;
+}
+function renderHomeLight(tt) {
+  const ci = chapterIdx(tt.subs), ch = CHAPTERS[ci], prev = ci ? CHAPTERS[ci - 1].goal : 0;
+  $('chapGoal').textContent = `${fmt(tt.subs)} / ${fmt(ch.goal)}`;
+  $('chapBar').style.width = clamp((tt.subs - prev) / (ch.goal - prev) * 100, 0, 100) + '%';
+  syncEnergy();
+  const can = S.energy >= 25;
+  if ($('makeBtn').disabled === can) renderHome();
+  else if (!can) $('makeBtn').innerHTML = `😴 에너지 충전 중 <small>${mmss(E_REGEN * (25 - S.energy) - (now() - S.energyAt))} 후 가능</small>`;
+}
+setInterval(tick, 1000);
+setInterval(() => { if (S && S.started) save(); }, 30000);
+
+/* ============ boot ============ */
+function boot(fromCloud) {
+  if (!S) S = loadLocal() ? Object.assign(fresh(), loadLocal()) : fresh();
+  const prev = { lastSeen: S.lastSeen, lastSeenReal: S.lastSeenReal };
+  if (!S.started) { prologue(); return; }
+  $('story').hidden = true;
+  dailyCheck(); syncEnergy(); moneyTick();
+  const tt = totals(); shown = { subs: tt.subs, views: tt.views, money: S.money };
+  renderAll(); updateBadges();
+  awaySummary(prev);
+  S.lastSeenReal = Date.now();
+}
+boot();
+connectCloud();
+
+window.__sl = { get S() { return S; }, totals, viewsOf, setNow: ms => { S.warpOffset += ms; } };
+})();
+</script>
+</body>
+</html>
