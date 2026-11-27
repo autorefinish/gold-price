@@ -251,7 +251,8 @@ button { font-family: inherit; color: inherit; }
         <div class="ch-name" id="chName">내 채널</div>
         <div class="ch-sub" id="chSub">뷰튜브 크리에이터 · 챕터 1</div>
       </div>
-      <button class="hdr-btn" id="setBtn" aria-label="설정">⚙️</button>
+      <button class="hdr-btn" id="muteBtn" aria-label="소리 켜기/끄기" style="margin-left:auto">🔊</button>
+      <button class="hdr-btn" id="setBtn" aria-label="설정" style="margin-left:6px">⚙️</button>
     </div>
     <div class="stats">
       <div class="stat subs"><b id="sSubs">0</b><span>구독자</span></div>
@@ -532,18 +533,72 @@ function beep(f, d = .08, type = 'triangle', v = .05, slide = 0) {
 }
 const ding = () => { beep(880, .1); setTimeout(() => beep(1320, .15), 90); };
 
+/* ---- sampled music & effects (generated with Higgsfield); synth beeps stay as fallback ---- */
+const SFX_FILES = ['tap', 'card', 'upload', 'sub', 'cash', 'heart', 'hit', 'miss', 'gulp', 'letter', 'chat', 'shutter', 'fanfare'];
+const MUSIC_FILES = ['bgm_home', 'bgm_work', 'bgm_live', 'bgm_story'];
+const BUF = {}, lastPlay = {};
+const SFX_GAP = { tap: .05, card: .05, chat: .12, sub: 4, hit: .04, heart: .05, cash: .3 };
+let sfxBus = null, musicBus = null, master = null, muted = false;
+try { muted = localStorage.getItem('sl-muted') === '1'; } catch (e) {}
+function initAudio() {
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  if (actx.state === 'suspended') actx.resume();
+  if (master) return;
+  master = actx.createGain(); master.gain.value = muted ? 0 : 1; master.connect(actx.destination);
+  sfxBus = actx.createGain(); sfxBus.gain.value = .85; sfxBus.connect(master);
+  musicBus = actx.createGain(); musicBus.gain.value = .38; musicBus.connect(master);
+  for (const n of [...SFX_FILES, ...MUSIC_FILES]) {
+    fetch('assets/audio/' + n + '.mp3').then(r => r.ok ? r.arrayBuffer() : Promise.reject())
+      .then(b => actx.decodeAudioData(b)).then(buf => { BUF[n] = buf; if (n === wantMusic) playMusic(n, true); })
+      .catch(() => {});
+  }
+}
+function sfx(name, vol = .6, fallback) {
+  if (!actx || !sfxBus) return;
+  const buf = BUF[name];
+  if (!buf) { if (fallback) fallback(); return; }
+  const t = actx.currentTime;
+  if (t - (lastPlay[name] ?? -99) < (SFX_GAP[name] || 0)) return;
+  lastPlay[name] = t;
+  const src = actx.createBufferSource(), g = actx.createGain();
+  src.buffer = buf; src.playbackRate.value = .96 + Math.random() * .08; g.gain.value = vol;
+  src.connect(g).connect(sfxBus); src.start();
+}
+let wantMusic = null, curMusic = null, musicSrc = null, musicGain = null;
+function playMusic(name, force) {
+  wantMusic = name;
+  if (!actx || !musicBus || !BUF[name]) return;
+  if (curMusic === name && musicSrc && !force) return;
+  if (musicSrc) { const s0 = musicSrc, g0 = musicGain, t = actx.currentTime; g0.gain.cancelScheduledValues(t); g0.gain.setValueAtTime(g0.gain.value, t); g0.gain.linearRampToValueAtTime(0, t + .8); s0.stop(t + .85); }
+  const src = actx.createBufferSource(), g = actx.createGain(), t = actx.currentTime;
+  src.buffer = BUF[name]; src.loop = true;
+  g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(1, t + 1.2);
+  src.connect(g).connect(musicBus); src.start();
+  musicSrc = src; musicGain = g; curMusic = name;
+}
+function setMuted(m) {
+  muted = m;
+  try { localStorage.setItem('sl-muted', m ? '1' : '0'); } catch (e) {}
+  if (master) master.gain.value = m ? 0 : 1;
+  $('muteBtn').textContent = m ? '🔇' : '🔊';
+}
+// browsers only allow sound after the first tap
+document.addEventListener('pointerdown', () => initAudio(), { capture: true });
+// a soft click on every button, unless a more specific sound plays
+document.addEventListener('click', e => { if (e.target.closest('button') && !e.target.closest('.card, .heart, .target, .cell, .live-msg, #tap')) sfx('tap', .35); }, true);
+
 function openSheet(html) { $('sheet').innerHTML = html; $('modal').hidden = false; $('sheet').scrollTop = 0; }
-function closeSheet() { $('modal').hidden = true; $('sheet').innerHTML = ''; $('sheet').onclick = null; delete $('modal').dataset.lock; }
+function closeSheet() { if (curMusic === 'bgm_work' || curMusic === 'bgm_live' || wantMusic === 'bgm_work' || wantMusic === 'bgm_live') playMusic('bgm_home'); $('modal').hidden = true; $('sheet').innerHTML = ''; $('sheet').onclick = null; delete $('modal').dataset.lock; }
 $('modal').addEventListener('click', e => { if (e.target === $('modal') && !$('modal').dataset.lock) closeSheet(); });
 
 /* ============ story scenes ============ */
 let storyQueue = [], storyDone = null;
 function playStory(pages, done) {
-  storyQueue = pages.slice(); storyDone = done; $('story').hidden = false; nextPage();
+  storyQueue = pages.slice(); storyDone = done; $('story').hidden = false; playMusic('bgm_story'); nextPage();
 }
 function nextPage() {
   const p = storyQueue.shift();
-  if (!p) { $('story').hidden = true; const d = storyDone; storyDone = null; d && d(); return; }
+  if (!p) { $('story').hidden = true; playMusic('bgm_home'); const d = storyDone; storyDone = null; d && d(); return; }
   $('storyPic').style.backgroundImage = p.bg ? `url(${A(p.bg)})` : 'none';
   $('storyChap').hidden = !p.chap; $('storyChap').textContent = p.chap || '';
   const w = $('storyWho'); if (p.who) { w.src = p.who; w.hidden = false; } else w.hidden = true;
@@ -554,7 +609,7 @@ function nextPage() {
   $('storyNext').hidden = false;
   if (p.render) p.render($('storyExtra'));
 }
-$('storyNext').addEventListener('click', () => { beep(660, .05); const p = $('storyNext').onBefore; if (p && !p()) return; $('storyNext').onBefore = null; nextPage(); });
+$('storyNext').addEventListener('click', () => { const p = $('storyNext').onBefore; if (p && !p()) return; $('storyNext').onBefore = null; nextPage(); });
 
 function prologue() {
   playStory([
@@ -702,7 +757,7 @@ $('quests').addEventListener('click', e => {
   const b = e.target.closest('[data-q]'); if (!b) return;
   const q = S.quests.list[+b.dataset.q]; if (q.claimed || q.have < q.need) return;
   q.claimed = true; if (q.rw.energy) { syncEnergy(); S.energy = Math.min(E_MAX + 40, S.energy + q.rw.energy); } if (q.rw.money) S.money += q.rw.money;
-  ding(); toast('🎁 보상을 받았어요!'); dirty(); renderHome();
+  sfx(q.rw.money ? 'cash' : 'sub', .7, ding); toast('🎁 보상을 받았어요!'); dirty(); renderHome();
 });
 
 function thumbHTML(v, small) {
@@ -744,7 +799,7 @@ $('shopList').addEventListener('click', e => {
   const b = e.target.closest('[data-eq]'); if (!b) return;
   const k = b.dataset.eq, eq = EQUIP[k], lv = S.equip[k], price = eq.price[lv + 1];
   if (S.money < price) return;
-  S.money -= price; S.equip[k]++; ding(); toast(`${eq.icon} ${eq.steps[S.equip[k]]} 장만!`); dirty(); renderShop(); renderHeader();
+  S.money -= price; S.equip[k]++; sfx('cash', .7, ding); toast(`${eq.icon} ${eq.steps[S.equip[k]]} 장만!`); dirty(); renderShop(); renderHeader();
 });
 function renderBook() {
   const tt = totals();
@@ -799,6 +854,7 @@ let P = null;   // production in progress
 $('makeBtn').addEventListener('click', () => {
   syncEnergy(); if (S.energy < 25) return;
   P = { genre: null, format: null, spice: 'none' };
+  playMusic('bgm_work');
   stepPlan();
 });
 function quality(mini) {
@@ -833,7 +889,7 @@ function stepPlan() {
   $('sheet').onclick = e => {
     const c = e.target.closest('.card'); if (!c || c.disabled) return;
     if (c.dataset.g) P.genre = c.dataset.g; if (c.dataset.f) P.format = c.dataset.f; if (c.dataset.s) P.spice = c.dataset.s;
-    beep(520, .04); const st = $('sheet').scrollTop; stepPlan(); $('sheet').scrollTop = st;
+    sfx('card', .55, () => beep(520, .04)); const st = $('sheet').scrollTop; stepPlan(); $('sheet').scrollTop = st;
   };
   $('cancel').onclick = () => { $('sheet').onclick = null; closeSheet(); };
   $('go').onclick = e => { e.stopPropagation(); if (!useEnergy(25)) return; $('sheet').onclick = null; renderHeader(); stepShoot(); };
@@ -854,7 +910,7 @@ function finishShoot(score, header) {
   openSheet(`${header}<div class="mg"><div class="result"><div class="stars">${'★'.repeat(stars)}${'☆'.repeat(3 - stars)}</div>
     <div class="score">${['아쉬운 컷…', '괜찮은 컷!', '완벽한 컷!!'][stars - 1]}</div><div class="hint">촬영 점수 ${Math.round(P.mini * 100)}점</div></div></div>
     <div class="actions"><button class="btn" id="next">편집하러 가기 ▶</button></div>`);
-  stars === 3 ? ding() : beep(500, .12);
+  stars === 3 ? sfx('fanfare', .6, ding) : sfx(stars === 2 ? 'hit' : 'miss', .6, () => beep(500, .12));
   $('next').onclick = stepEdit;
 }
 function mgTiming(header) {
@@ -878,7 +934,7 @@ function mgTiming(header) {
   const hit = () => {
     const z = zones[round], c = z.a + z.w / 2, d = Math.abs(x - c);
     const sc = d < z.w * .15 ? 1 : d < z.w / 2 ? .7 : Math.max(0, .35 - (d - z.w / 2) / 60);
-    total += sc; beep(sc >= 1 ? 1200 : sc > .5 ? 800 : 300, .08);
+    total += sc; sc > .5 ? sfx('hit', sc >= 1 ? .8 : .55, () => beep(sc >= 1 ? 1200 : 800, .08)) : sfx('miss', .6, () => beep(300, .08));
     round++; speed += .35;
     if (round >= 3) { cancelAnimationFrame(raf); finishShoot(total / 3, header); return; }
     draw();
@@ -896,7 +952,7 @@ function mgTap(header) {
     spawned++;
     const b = document.createElement('button'); b.className = 'target'; b.textContent = P.genre === 'game' ? '💥' : '✨';
     b.style.left = rnd(3, 79) + '%'; b.style.top = rnd(3, 79) + '%'; b.setAttribute('aria-label', '하이라이트');
-    b.onpointerdown = e => { e.preventDefault(); hits++; $('hc').textContent = hits; beep(700 + hits * 30, .05); b.remove(); };
+    b.onpointerdown = e => { e.preventDefault(); hits++; $('hc').textContent = hits; sfx('hit', .55, () => beep(700 + hits * 30, .05)); b.remove(); };
     arena.appendChild(b); setTimeout(() => b.remove(), 900);
     spawnT = setTimeout(spawn, rnd(380, 620));
   };
@@ -919,15 +975,15 @@ function mgSnap(header) {
     $('rd').textContent = `${round + 1} / 5`;
     to = setTimeout(() => {
       star = Math.floor(Math.random() * 9); cells[star].classList.add('star'); shownAt = performance.now();
-      to = setTimeout(() => { $('fb').textContent = '놓쳤다!'; beep(250, .1); star = -1; round++; next(); }, 1100);
+      to = setTimeout(() => { $('fb').textContent = '놓쳤다!'; sfx('miss', .6, () => beep(250, .1)); star = -1; round++; next(); }, 1100);
     }, rnd(500, 1300));
   };
   $('g9').onclick = e => {
     const c = e.target.closest('.cell'); if (!c) return;
     if (star < 0) return;
     clearTimeout(to);
-    if (+c.dataset.c === star) { const dt = performance.now() - shownAt; const sc = clamp(1.15 - dt / 1100, .4, 1); score += sc; $('fb').textContent = sc > .8 ? '완벽한 순간!' : '좋아!'; beep(900, .06); }
-    else { $('fb').textContent = '앗, 거기가 아니야!'; beep(250, .1); }
+    if (+c.dataset.c === star) { const dt = performance.now() - shownAt; const sc = clamp(1.15 - dt / 1100, .4, 1); score += sc; $('fb').textContent = sc > .8 ? '완벽한 순간!' : '좋아!'; sfx('shutter', .7, () => beep(900, .06)); }
+    else { $('fb').textContent = '앗, 거기가 아니야!'; sfx('miss', .6, () => beep(250, .1)); }
     star = -1; round++; next();
   };
   next();
@@ -951,7 +1007,7 @@ function stepEdit() {
   $('sheet').onclick = e => {
     const o = e.target.closest('[data-x]'), h = e.target.closest('[data-h]');
     if (o) P.expr = o.dataset.x; if (h) P.hook = h.dataset.h;
-    if (o || h) { beep(520, .04); const st = $('sheet').scrollTop; stepEdit(); $('sheet').scrollTop = st; }
+    if (o || h) { sfx(o ? 'shutter' : 'card', .5, () => beep(520, .04)); const st = $('sheet').scrollTop; stepEdit(); $('sheet').scrollTop = st; }
   };
   $('next').onclick = e => { e.stopPropagation(); $('sheet').onclick = null; stepUpload(); };
 }
@@ -1006,15 +1062,15 @@ function doUpload() {
   if (P.cb) { questProgress('combo'); if (!S.combos[P.cb.i]) { S.combos[P.cb.i] = t; newCombo = P.cb.c; S.bookNew = true; } }
   S.newVids = (S.newVids || 0) + 1;
   closeSheet(); dirty(); save();
-  ding(); toast('🚀 업로드 완료! 조회수는 지금부터 실제 시간으로 올라가요');
-  if (newCombo) setTimeout(() => { toast(`📖 새 레시피 발견: ${newCombo.title}!`, 3500); beep(1046, .2); }, 900);
+  sfx('upload', .8, ding); toast('🚀 업로드 완료! 조회수는 지금부터 실제 시간으로 올라가요');
+  if (newCombo) setTimeout(() => { toast(`📖 새 레시피 발견: ${newCombo.title}!`, 3500); sfx('fanfare', .6, () => beep(1046, .2)); }, 900);
   updateBadges(); renderAll();
   // the very first video: meet 첫눈 a little later
   if (S.videos.length === 1) setTimeout(firstSub, 9000);
 }
 function firstSub() {
   if (S.seenSnow) return;
-  S.seenSnow = true; S.letters.availDay = S.day; S.subsBonus += 1;
+  S.seenSnow = true; S.letters.availDay = S.day; S.subsBonus += 1; sfx('sub', .8);
   playStory([
     { bg: 'room1', who: heroImg('wow'), spk: '나', txt: '어? 알림이 왔다.\n…구독자 1명?!' },
     { bg: 'room1', spk: '첫눈 (구독자 1호)', txt: '"계속 올려주세요. 기다릴게요."\n\n프로필 사진도 없는 계정. 닉네임은 \'첫눈\'.' },
@@ -1064,7 +1120,7 @@ function openVideo(id) {
     $('cls').onclick = () => { clearInterval(detailTimer); closeSheet(); };
     $('cmts').onclick = e => {
       const b = e.target.closest('.heart'); if (!b || S.hearted[b.dataset.c]) return;
-      S.hearted[b.dataset.c] = 1; b.classList.add('on'); beep(1000, .06); questProgress('heart');
+      S.hearted[b.dataset.c] = 1; b.classList.add('on'); sfx('heart', .7, () => beep(1000, .06)); questProgress('heart');
       const k = b.dataset.fan;
       if (k) {
         S.fans[k] = (S.fans[k] || 0) + 1;
@@ -1105,7 +1161,7 @@ $('liveTile').addEventListener('click', () => {
   if (!w) { toast('📅 라이브는 점심(11:30~13:30)과 저녁(19:00~23:30)에만 열려요'); return; }
   if (S.live[key]) { toast('이번 시간대 방송은 이미 했어요. ' + nextLiveText()); return; }
   if (!useEnergy(15)) { toast('⚡ 에너지가 부족해요'); return; }
-  S.live[key] = true; dirty(); runLive();
+  S.live[key] = true; dirty(); playMusic('bgm_live'); runLive();
 });
 function runLive() {
   $('modal').dataset.lock = '1';
@@ -1127,15 +1183,15 @@ function runLive() {
     let r = Math.random(), tp = 'q'; for (const [k, p] of types) { if ((r -= p) <= 0) { tp = k; break; } }
     const b = document.createElement('button'); b.className = 'live-msg ' + tp;
     const nick = pick(NICKS); b.innerHTML = `<b>${nick}</b> ${esc(pick(texts[tp]))}`;
-    b.style.top = '100%'; la.appendChild(b);
+    b.style.top = '100%'; la.appendChild(b); sfx('chat', .18);
     let top = 100;
     const mv = setInterval(() => { top -= 1.1; b.style.top = top + '%'; if (top < -18) { clearInterval(mv); if (tp === 't' && !b.dataset.done) missedTrolls++; b.remove(); } }, 50);
-    if (tp === 'd') { const m = [1000, 5000, 2000][texts.d.findIndex(x => b.textContent.includes(x))] || 1000; dona += m; beep(1500, .08); upd(); }
+    if (tp === 'd') { const m = [1000, 5000, 2000][texts.d.findIndex(x => b.textContent.includes(x))] || 1000; dona += m; sfx('cash', .55, () => beep(1500, .08)); upd(); }
     b.onclick = () => {
       if (b.dataset.done) return; b.dataset.done = 1;
-      if (tp === 'q') { answered++; b.classList.add('done'); beep(900, .05); }
-      else if (tp === 't') { bans++; b.classList.add('done'); b.innerHTML = '🚫 차단됨'; beep(300, .06); }
-      else if (tp === 'p') { b.classList.add('done'); beep(700, .04); }
+      if (tp === 'q') { answered++; b.classList.add('done'); sfx('chat', .7, () => beep(900, .05)); }
+      else if (tp === 't') { bans++; b.classList.add('done'); b.innerHTML = '🚫 차단됨'; sfx('miss', .5, () => beep(300, .06)); }
+      else if (tp === 'p') { b.classList.add('done'); sfx('heart', .5, () => beep(700, .04)); }
       upd();
     };
   };
@@ -1151,7 +1207,7 @@ function runLive() {
       openSheet(`<h2>방송 종료!</h2><div class="pred">💬 질문 답변 ${answered}개 · 🚫 악플 차단 ${bans}개${missedTrolls ? ` · 놓친 악플 ${missedTrolls}개` : ''}<br>
         <b style="font-size:16px">구독자 +${fmt(gain)}명 · 후원 ${won(dona)}</b></div>
         <div class="actions"><button class="btn" id="cls">좋아!</button></div>`);
-      delete $('modal').dataset.lock; ding();
+      delete $('modal').dataset.lock; sfx('fanfare', .6, ding);
       $('cls').onclick = () => { closeSheet(); renderAll(); };
     }
   }, 1000);
@@ -1163,14 +1219,16 @@ $('drinkTile').addEventListener('click', () => {
   if (S.drinks.n >= 3) { toast('오늘은 더 마시면 몸에 안 좋아요 😵'); return; }
   if (S.money < 5000) { toast('💸 잔고가 부족해요'); return; }
   syncEnergy(); S.money -= 5000; S.energy = Math.min(E_MAX + 40, S.energy + 30); S.drinks.n++;
-  beep(600, .1, 'sine', .05, 400); toast('🥤 꿀꺽! ⚡+30'); dirty(); renderAll();
+  sfx('gulp', .8, () => beep(600, .1, 'sine', .05, 400)); toast('🥤 꿀꺽! ⚡+30'); dirty(); renderAll();
 });
 $('letterBtn').addEventListener('click', () => {
   const i = S.letters.read, txt = SNOW_LETTERS[Math.min(i, SNOW_LETTERS.length - 1)];
-  S.letters.read++; S.letters.lastRead = S.day; S.bookNew = true; dirty();
+  sfx('letter', .8); S.letters.read++; S.letters.lastRead = S.day; S.bookNew = true; dirty();
   playStory([{ bg: tt0().subs >= 1000 ? 'room2' : 'room1', spk: `❄️ 첫눈의 편지 #${i + 1}`, txt, btn: '편지 접기' }], () => { renderAll(); updateBadges(); });
 });
 const tt0 = () => totals();
+$('muteBtn').addEventListener('click', () => { initAudio(); setMuted(!muted); });
+setMuted(muted);
 $('setBtn').addEventListener('click', () => {
   openSheet(`<h2>설정</h2>
     <div class="item"><div class="ic">⏩</div><div class="mid"><div class="nm">시간 가속 (테스트용)</div><div class="ds">켜면 게임 속 시간이 60배 빨리 흘러요. 1분 = 1시간. 성장 흐름을 빨리 확인할 때 쓰세요.</div></div><button class="buy" id="warp">${S.warp ? '끄기' : '켜기'}</button></div>
@@ -1193,7 +1251,7 @@ function milestoneCheck(tt) {
   if (!S.started || !$('story').hidden) return;
   const ci = chapterIdx(tt.subs);
   if (ci > S.chapterSeen) {
-    S.chapterSeen = ci; dirty();
+    S.chapterSeen = ci; dirty(); sfx('fanfare', .8);
     if (ci === 1) playStory([
       { bg: 'room1', chap: '챕터 1 클리어!', who: heroImg('wow'), spk: '나', txt: '구독자 100명…!\n100명이 내 영상을 기다린다니, 믿기지가 않아.' },
       { bg: 'room1', chap: '챕터 2 · 첫 알고리즘', txt: '🔓 라이브 방송이 열렸어요! (점심·저녁 시간)\n🔓 양념 카드가 열렸어요: 엄마 출연, 고양이, 실패 편집\n\n다음 목표: 구독자 1,000명 — 수익 창출!', btn: '계속하기' },
@@ -1229,7 +1287,7 @@ function moneyTick() {
 function viralCheck() {
   for (const v of S.videos) if (v.viralAt && !v.notified && now() > v.viralAt) {
     v.notified = true; dirty();
-    toast(`🔥 "${v.short}" 영상이 알고리즘 추천을 탔어요!`, 4000); beep(784, .12); setTimeout(() => beep(1046, .2), 120);
+    toast(`🔥 "${v.short}" 영상이 알고리즘 추천을 탔어요!`, 4000); sfx('fanfare', .7, () => { beep(784, .12); setTimeout(() => beep(1046, .2), 120); });
   }
 }
 
@@ -1245,12 +1303,12 @@ function awaySummary(prev) {
     <div class="kpis"><div class="kpi"><b>+${fmt(dViews)}</b><span>조회수</span></div><div class="kpi"><b style="color:var(--pop)">+${fmt(dSubs)}</b><span>구독자</span></div><div class="kpi"><b>⚡${S.energy}</b><span>에너지</span></div></div>
     ${S.videos.filter(v => v.viralAt && v.viralAt > prev.lastSeen && v.viralAt < now()).map(v => `<div class="pred">🔥 "${esc(v.short)}" 영상이 자는 사이 알고리즘 추천을 탔어요!</div>`).join('')}
     <div class="actions"><button class="btn" id="cls">좋아요!</button></div>`);
-  $('cls').onclick = closeSheet; ding();
+  $('cls').onclick = closeSheet; sfx('sub', .7, ding);
 }
 function totalsAt(t) { return totals(t); }
 
 /* ============ main loop ============ */
-let lastTick = Date.now();
+let lastTick = Date.now(), lastSubs = null;
 function tick() {
   const real = Date.now(), dt = real - lastTick; lastTick = real;
   if (S && S.warp) S.warpOffset += dt * 59;
@@ -1259,6 +1317,8 @@ function tick() {
   const tt = totals();
   if (tt.subs >= 1000 && !S.monetizedAt) startMonetization();
   moneyTick(); viralCheck(); milestoneCheck(tt);
+  if (lastSubs !== null && tt.subs > lastSubs && document.visibilityState === 'visible') sfx('sub', .22);
+  lastSubs = tt.subs;
   renderHeader(tt);
   if (curTab === 'home') renderHomeLight(tt);
   if (curTab === 'channel') updateChannelLive();
@@ -1285,13 +1345,14 @@ function boot(fromCloud) {
   dailyCheck(); syncEnergy(); moneyTick();
   const tt = totals(); shown = { subs: tt.subs, views: tt.views, money: S.money };
   renderAll(); updateBadges();
+  playMusic('bgm_home');
   awaySummary(prev);
   S.lastSeenReal = Date.now();
 }
 boot();
 connectCloud();
 
-window.__sl = { get S() { return S; }, totals, viewsOf, setNow: ms => { S.warpOffset += ms; } };
+window.__sl = { get S() { return S; }, totals, viewsOf, setNow: ms => { S.warpOffset += ms; }, audio: () => ({ loaded: Object.keys(BUF).sort(), music: curMusic, want: wantMusic, state: actx && actx.state }) };
 })();
 </script>
 </body>
